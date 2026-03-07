@@ -6,7 +6,7 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
 export async function POST(request: NextRequest) {
   try {
-    const { projectId, clientName, clientEmail, slug } = await request.json();
+    const { clientName, clientEmail, slug } = await request.json();
 
     if (!clientEmail) {
       return NextResponse.json({ skipped: true }, { status: 200 });

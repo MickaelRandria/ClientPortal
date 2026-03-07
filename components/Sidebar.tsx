@@ -116,7 +116,6 @@ export default function Sidebar() {
             icon={item.icon}
             label={item.label}
             isActive={isActive(item.href)}
-            notification={item.notification}
           />
         ))}
       </nav>
