@@ -73,7 +73,7 @@ export default function LoginForm() {
           className="text-sm text-center mb-8"
           style={{ color: "var(--ds-text-secondary)" }}
         >
-          Accès réservé à l'équipe
+          Accès réservé à l&apos;équipe
         </p>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">

@@ -19,7 +19,9 @@
       "Bash(npm install groq-sdk)",
       "mcp__claude_ai_Supabase__list_tables",
       "mcp__claude_ai_Supabase__apply_migration",
-      "Bash(npm install resend)"
+      "Bash(npm install resend)",
+      "Bash(npx next lint)",
+      "Bash(grep -v \"^$\")"
     ]
   }
 }

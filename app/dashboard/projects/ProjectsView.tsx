@@ -152,7 +152,7 @@ export default function ProjectsView({
             </div>
             <div>
               <p className="font-bold text-lg" style={{ color: "var(--ds-text-primary)" }}>
-                Aucun projet pour l'instant
+                Aucun projet pour l&apos;instant
               </p>
               <p className="text-sm mt-1" style={{ color: "var(--ds-text-secondary)" }}>
                 Créez votre premier projet client pour commencer.

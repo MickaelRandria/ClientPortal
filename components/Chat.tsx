@@ -224,7 +224,7 @@ export default function Chat({ projectId, senderType, senderName, initialMessage
               className="text-sm text-center leading-relaxed"
               style={{ color: "var(--ds-text-tertiary)" }}
             >
-              Aucun message pour l'instant.
+              Aucun message pour l&apos;instant.
               <br />
               Démarrez la conversation !
             </p>

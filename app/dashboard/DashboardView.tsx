@@ -194,7 +194,7 @@ function EmptyState({ onNew }: { onNew: () => void }) {
           className="font-bold text-lg"
           style={{ color: "var(--ds-text-primary)", letterSpacing: "-0.02em" }}
         >
-          Aucun projet pour l'instant
+          Aucun projet pour l&apos;instant
         </p>
         <p className="text-sm mt-1" style={{ color: "var(--ds-text-secondary)" }}>
           Créez votre premier projet client pour commencer.

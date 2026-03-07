@@ -5,28 +5,19 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   ChevronRight,
-  Sparkles,
   FileText,
   FolderOpen,
   MessageSquare,
   Copy,
   Check,
   Loader2,
-  RefreshCw,
   Calendar,
-  Target,
-  Users,
-  Mic2,
-  Package,
-  AlertCircle,
-  MessagesSquare,
   Download,
   Image as ImageIcon,
   File,
   FileSpreadsheet,
   Paperclip,
   Palette,
-  Mail,
   X,
   Trash2,
 } from "lucide-react";
@@ -138,30 +129,6 @@ function isImage(mimeType: string | null) {
 
 /* ── Sub-components ──────────────────────────────────────────────── */
 
-function SummaryField({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value?: string | null;
-}) {
-  if (!value) return null;
-  return (
-    <div className="rounded-2xl p-4 space-y-2 bg-black/5 border border-black/5">
-      <div className="flex items-center gap-2">
-        <span className="text-[var(--ds-mint-text)]">{icon}</span>
-        <p className="text-[11px] font-bold uppercase text-[var(--ds-text-tertiary)] tracking-wider">
-          {label}
-        </p>
-      </div>
-      <p className="text-sm border-0 bg-transparent leading-relaxed text-[var(--ds-text-primary)]">
-        {value}
-      </p>
-    </div>
-  );
-}
 
 function BriefField({ label, value }: { label: string; value?: string }) {
   if (!value) return null;
@@ -227,7 +194,7 @@ function AdminFilesTab({ uploads: initialUploads }: { uploads: Upload[] }) {
         <div>
           <p className="font-bold" style={{ color: "var(--ds-text-primary)" }}>Aucun fichier</p>
           <p className="text-sm mt-1" style={{ color: "var(--ds-text-secondary)" }}>
-            Le client n'a pas encore déposé de fichiers.
+            Le client n&apos;a pas encore déposé de fichiers.
           </p>
         </div>
       </div>
@@ -624,7 +591,7 @@ export default function AdminProjectView({
                             Brief non rempli
                           </p>
                           <p className="text-[var(--ds-text-secondary)] mt-2">
-                            Le client n'a pas encore complété son brief.
+                            Le client n&apos;a pas encore complété son brief.
                           </p>
                         </div>
                       </div>

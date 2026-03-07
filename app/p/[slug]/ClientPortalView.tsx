@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase";
 import { FileText, FolderOpen, MessageSquare, Save } from "lucide-react";
 import FilesTab, { type UploadRecord } from "./FilesTab";
-import { cn } from "@/lib/utils";
 import AISummaryTab from "@/components/AISummaryTab";
 import Chat, { type Message } from "@/components/Chat";
 
@@ -23,7 +22,7 @@ interface Project {
   client_name: string;
   slug: string;
   status: "draft" | "active" | "completed";
-  ai_summary: any;
+  ai_summary: Record<string, unknown> | null;
 }
 
 interface Brief {

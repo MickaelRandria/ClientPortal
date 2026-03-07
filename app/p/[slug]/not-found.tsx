@@ -33,7 +33,7 @@ export default function NotFound() {
           Projet introuvable
         </h1>
         <p className="text-sm" style={{ color: "var(--ds-text-secondary)" }}>
-          Ce lien ne correspond à aucun projet. Vérifiez l'URL ou contactez votre équipe.
+          Ce lien ne correspond à aucun projet. Vérifiez l&apos;URL ou contactez votre équipe.
         </p>
       </div>
     </div>

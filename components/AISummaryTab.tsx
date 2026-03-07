@@ -153,7 +153,7 @@ export default function AISummaryTab({
           <div className="flex items-center gap-2">
             <AlertCircle size={14} strokeWidth={1.8} className="text-[var(--ds-yellow-text)]" />
             <p className="text-[11px] font-bold uppercase text-[var(--ds-yellow-text)] tracking-wider">
-              Points d'attention
+              Points d&apos;attention
             </p>
           </div>
           <ul className="space-y-1.5">
