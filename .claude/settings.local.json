@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx shadcn@latest add tabs textarea input card sonner --yes)",
+      "Bash(npx shadcn@latest add dialog label badge --yes)",
+      "mcp__claude_ai_Supabase__list_projects",
+      "mcp__claude_ai_Supabase__execute_sql",
+      "Bash(npm install @anthropic-ai/sdk)",
+      "Bash(npx shadcn@latest add select --yes)",
+      "Bash(npm uninstall @anthropic-ai/sdk)",
+      "Bash(npm install @google/generative-ai)",
+      "Bash(npm list @google/generative-ai)",
+      "Bash(node -e \"const g = require\\(''@google/generative-ai''\\); console.log\\(Object.keys\\(g\\).filter\\(k => k.toLowerCase\\(\\).includes\\(''part''\\) || k === ''Content''\\)\\)\")",
+      "Bash(node -e \"const m = require\\(''c:/Users/vrymi/client-portal/node_modules/@google/generative-ai''\\); console.log\\(typeof m.GoogleGenerativeAI\\)\")",
+      "Bash(node -e \"const fs = require\\(''fs''\\); const idx = fs.readFileSync\\(''c:/Users/vrymi/client-portal/node_modules/@google/generative-ai/dist/index.d.ts'', ''utf8''\\); console.log\\(idx.match\\(/export.*Part/g\\)?.slice\\(0,10\\)\\)\")",
+      "Bash(node -e \"const fs = require\\(''fs''\\); const f = fs.readdirSync\\(''c:/Users/vrymi/client-portal/node_modules/@google/generative-ai/dist''\\); console.log\\(f\\)\")",
+      "Bash(node -e \"const fs = require\\(''fs''\\); const idx = fs.readFileSync\\(''c:/Users/vrymi/client-portal/node_modules/@google/generative-ai/dist/generative-ai.d.ts'', ''utf8''\\); const parts = idx.match\\(/export.*Part/g\\); console.log\\(parts?.slice\\(0,15\\)\\)\")",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npm install groq-sdk)",
+      "mcp__claude_ai_Supabase__list_tables",
+      "mcp__claude_ai_Supabase__apply_migration",
+      "Bash(npm install resend)"
+    ]
+  }
+}
