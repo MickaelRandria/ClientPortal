@@ -13,6 +13,7 @@ export interface ProjectWithStats {
   id: string;
   client_name: string;
   client_email: string | null;
+  client_phone: string | null;
   slug: string;
   status: "draft" | "active" | "completed";
   created_at: string;

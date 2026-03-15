@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,7 +14,7 @@ import Chat, { type Message } from "@/components/Chat";
 
 const STATUS_BADGE = {
   active:    { label: "Projet Actif",    bg: "var(--ds-mint-bg)",  color: "var(--ds-mint-text)" },
-  draft:     { label: "En préparation",  bg: "rgba(0,0,0,0.05)",   color: "var(--ds-text-secondary)" },
+  draft:     { label: "En préparation",  bg: "rgba(255,255,255,0.05)",   color: "var(--ds-text-secondary)" },
   completed: { label: "Projet Terminé",  bg: "var(--ds-blue-bg)",  color: "var(--ds-blue-text)" },
 } as const;
 
@@ -87,10 +88,13 @@ export default function ClientPortalView({ project, initialBrief, initialUploads
   return (
     <div className="min-h-screen flex flex-col" style={{ background: "var(--ds-bg)" }}>
       {/* ── Header ── */}
-      <header className="sticky top-0 z-20 border-b px-8 py-5 bg-white/80 backdrop-blur-2xl border-[var(--ds-border-subtle)]">
+      <header className="sticky top-0 z-20 border-b px-8 py-5 bg-[#09040F]/80 backdrop-blur-2xl border-white/5">
         <div className="max-w-[1600px] mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-[1.5rem] flex items-center justify-center font-bold text-white text-base bg-gradient-to-br from-[#34D399] to-[#06B6D4] shadow-md shadow-emerald-200/50">
+            <Link href="/dashboard" className="transition-transform hover:scale-105 mr-2">
+              <img src="/logo-koko.png" alt="Koko Prod" className="h-8 object-contain" />
+            </Link>
+            <div className="w-12 h-12 rounded-[1.5rem] flex items-center justify-center font-bold text-white text-base bg-gradient-to-br from-[#8B5CF6] to-[#6D28D9] shadow-lg shadow-purple-500/20">
               {project.client_name.charAt(0).toUpperCase()}
             </div>
             <div>
@@ -107,7 +111,7 @@ export default function ClientPortalView({ project, initialBrief, initialUploads
             const badge = STATUS_BADGE[project.status] ?? STATUS_BADGE.active;
             return (
               <div
-                className="px-4 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider"
+                className="px-4 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider border border-white/5"
                 style={{ background: badge.bg, color: badge.color }}
               >
                 {badge.label}
@@ -124,7 +128,7 @@ export default function ClientPortalView({ project, initialBrief, initialUploads
           <div className="col-span-12 lg:col-span-8">
             <Tabs defaultValue="brief" orientation="vertical" className="w-full items-start gap-8">
               {/* Vertical Sidebar Tabs */}
-              <TabsList className="glass-card flex-col p-2 h-auto w-20 shrink-0 gap-2 !bg-white/40 border-white/60">
+              <TabsList className="glass-card flex-col p-2 h-auto w-20 shrink-0 gap-2 !bg-white/5 border-white/10">
                 {[
                   { value: "brief",    label: "Brief",     icon: <FileText size={20} /> },
                   { value: "fichiers", label: "Fichiers",  icon: <FolderOpen size={20} /> },
@@ -133,7 +137,7 @@ export default function ClientPortalView({ project, initialBrief, initialUploads
                   <TabsTrigger
                     key={tab.value}
                     value={tab.value}
-                    className="flex flex-col items-center justify-center gap-1.5 rounded-2xl w-16 h-16 transition-all data-[state=active]:bg-[var(--ds-mint)] data-[state=active]:text-[var(--ds-mint-text)] data-[state=active]:shadow-lg"
+                    className="flex flex-col items-center justify-center gap-1.5 rounded-2xl w-16 h-16 transition-all data-[state=active]:bg-[var(--ds-mint)] data-[state=active]:text-[var(--ds-mint-text)] data-[state=active]:shadow-[0_4px_16px_rgba(139,92,246,0.3)]"
                     title={tab.label}
                   >
                     {tab.icon}
@@ -159,7 +163,7 @@ export default function ClientPortalView({ project, initialBrief, initialUploads
                       <Field label="Objectif du projet">
                         <Textarea
                           placeholder="Quel est l'objectif principal de ce projet ?"
-                          className="rounded-[1.5rem] bg-black/[0.02] border-black/5 focus:bg-white transition-all text-sm min-h-[100px]"
+                          className="rounded-[1.5rem] bg-white/[0.03] border-white/5 focus:bg-white/5 focus:border-[var(--ds-mint)]/30 transition-all text-sm min-h-[100px]"
                           value={form.objectif}
                           onChange={(e) => handleChange("objectif", e.target.value)}
                         />
@@ -169,7 +173,7 @@ export default function ClientPortalView({ project, initialBrief, initialUploads
                         <Field label="Cible visée">
                           <Textarea
                             placeholder="À qui s'adresse ce projet ?"
-                            className="rounded-[1.5rem] bg-black/[0.02] border-black/5 focus:bg-white transition-all text-sm min-h-[100px]"
+                            className="rounded-[1.5rem] bg-white/[0.03] border-white/5 focus:bg-white/5 focus:border-[var(--ds-mint)]/30 transition-all text-sm min-h-[100px]"
                             value={form.cible}
                             onChange={(e) => handleChange("cible", e.target.value)}
                           />
@@ -178,7 +182,7 @@ export default function ClientPortalView({ project, initialBrief, initialUploads
                         <Field label="Ton souhaité">
                           <Textarea
                             placeholder="Ex : Pro, créatif, institutionnel..."
-                            className="rounded-[1.5rem] bg-black/[0.02] border-black/5 focus:bg-white transition-all text-sm min-h-[100px]"
+                            className="rounded-[1.5rem] bg-white/[0.03] border-white/5 focus:bg-white/5 focus:border-[var(--ds-mint)]/30 transition-all text-sm min-h-[100px]"
                             value={form.ton_souhaite}
                             onChange={(e) => handleChange("ton_souhaite", e.target.value)}
                           />
@@ -188,7 +192,7 @@ export default function ClientPortalView({ project, initialBrief, initialUploads
                       <Field label="Livrables attendus">
                         <Textarea
                           placeholder="Ex : Logo, Site Web, Identité visuelle..."
-                          className="rounded-[1.5rem] bg-black/[0.02] border-black/5 focus:bg-white transition-all text-sm"
+                          className="rounded-[1.5rem] bg-white/[0.03] border-white/5 focus:bg-white/5 focus:border-[var(--ds-mint)]/30 transition-all text-sm"
                           value={form.livrables_attendus}
                           onChange={(e) => handleChange("livrables_attendus", e.target.value)}
                         />
@@ -198,14 +202,14 @@ export default function ClientPortalView({ project, initialBrief, initialUploads
                         <Field label="Echéance souhaitée (Deadline)">
                           <Input
                             type="date"
-                            className="rounded-full bg-black/[0.02] border-black/5 focus:bg-white h-12 transition-all"
+                            className="rounded-full bg-white/[0.03] border-white/5 focus:bg-white/5 focus:border-[var(--ds-mint)]/30 h-12 transition-all"
                             value={form.deadline}
                             onChange={(e) => handleChange("deadline", e.target.value)}
                           />
                         </Field>
                         <div className="flex justify-end">
                           <button
-                            className="btn-mint w-full md:w-auto h-12 px-10 flex items-center justify-center gap-2 shadow-lg shadow-emerald-200/50"
+                            className="btn-mint w-full md:w-auto h-12 px-10 flex items-center justify-center gap-2"
                             onClick={handleSave}
                             disabled={saving}
                           >
@@ -218,7 +222,7 @@ export default function ClientPortalView({ project, initialBrief, initialUploads
                       <Field label="Notes & informations libres">
                         <Textarea
                           placeholder="Toute autre information pertinente..."
-                          className="rounded-[2rem] bg-black/[0.02] border-black/5 focus:bg-white transition-all text-sm min-h-[120px]"
+                          className="rounded-[2rem] bg-white/[0.03] border-white/5 focus:bg-white/5 focus:border-[var(--ds-mint)]/30 transition-all text-sm min-h-[120px]"
                           value={form.notes_libres}
                           onChange={(e) => handleChange("notes_libres", e.target.value)}
                         />

@@ -45,7 +45,7 @@ export default function RootLayout({
             width: "600px",
             height: "600px",
             borderRadius: "50%",
-            background: "rgba(52,211,153,0.08)",
+            background: "rgba(139, 92, 246, 0.12)",
             filter: "blur(120px)",
           }}
         />
@@ -58,7 +58,7 @@ export default function RootLayout({
             width: "500px",
             height: "500px",
             borderRadius: "50%",
-            background: "rgba(147,197,253,0.07)",
+            background: "rgba(67, 56, 202, 0.08)",
             filter: "blur(120px)",
           }}
         />
@@ -71,7 +71,7 @@ export default function RootLayout({
             width: "400px",
             height: "400px",
             borderRadius: "50%",
-            background: "rgba(251,191,36,0.05)",
+            background: "rgba(124, 58, 237, 0.06)",
             filter: "blur(120px)",
           }}
         />

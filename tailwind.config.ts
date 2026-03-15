@@ -48,28 +48,28 @@ const config: Config = {
         input: "var(--input)",
         ring: "var(--ring)",
         // Design system custom tokens
-        bg: "#F4F5F7",
-        surface: "rgba(255,255,255,0.72)",
-        "surface-solid": "#FFFFFF",
-        "surface-hover": "rgba(255,255,255,0.88)",
-        mint: {
-          DEFAULT: "#34D399",
-          hover: "#10B981",
-          bg: "rgba(52,211,153,0.10)",
-          "bg-active": "rgba(52,211,153,0.18)",
-          text: "#065F46",
+        bg: "#09040F",
+        surface: "rgba(18, 10, 28, 0.72)",
+        "surface-solid": "#120A1C",
+        "surface-hover": "rgba(22, 12, 36, 0.88)",
+        purple: {
+          DEFAULT: "#8B5CF6",
+          hover: "#7C3AED",
+          bg: "rgba(139, 92, 246, 0.15)",
+          "bg-active": "rgba(139, 92, 246, 0.25)",
+          text: "#FFFFFF",
         },
         yellow: {
           bg: "rgba(251,191,36,0.12)",
-          text: "#92400E",
+          text: "#FBBF24",
         },
         blue: {
           bg: "rgba(59,130,246,0.10)",
-          text: "#1E40AF",
+          text: "#60A5FA",
         },
         red: {
           bg: "rgba(239,68,68,0.10)",
-          text: "#991B1B",
+          text: "#F87171",
         },
       },
       borderRadius: {
@@ -83,12 +83,12 @@ const config: Config = {
       },
       boxShadow: {
         glass:
-          "0 0 0 1px rgba(0,0,0,0.02), 0 1px 2px rgba(0,0,0,0.03), 0 20px 40px rgba(0,0,0,0.04)",
+          "0 0 0 1px rgba(255,255,255,0.05), 0 1px 2px rgba(0,0,0,0.2), 0 20px 40px rgba(0,0,0,0.4)",
         "glass-hover":
-          "0 0 0 1px rgba(0,0,0,0.02), 0 2px 4px rgba(0,0,0,0.04), 0 24px 48px rgba(0,0,0,0.07)",
-        "mint-glow": "0 8px 24px rgba(52,211,153,0.20)",
+          "0 0 0 1px rgba(255,255,255,0.1), 0 2px 4px rgba(0,0,0,0.3), 0 24px 48px rgba(0,0,0,0.6)",
+        "purple-glow": "0 8px 32px rgba(139, 92, 246, 0.35)",
         "logo-glow":
-          "0 0 0 1px rgba(52,211,153,0.2), 0 4px 16px rgba(52,211,153,0.25)",
+          "0 0 0 1px rgba(139, 92, 246, 0.2), 0 4px 16px rgba(139, 92, 246, 0.4)",
       },
       keyframes: {
         slideUp: {

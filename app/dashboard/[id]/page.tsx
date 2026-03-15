@@ -34,7 +34,7 @@ export default async function AdminProjectPage({ params, searchParams }: PagePro
 
   const { data: project } = await supabase
     .from("projects")
-    .select("id, client_name, client_email, slug, status, created_at, admin_id, ai_summary")
+    .select("id, client_name, client_email, client_phone, slug, status, created_at, admin_id, ai_summary")
     .eq("id", params.id)
     .single();
 

@@ -233,12 +233,11 @@ function UploadZone({ cat, projectId, files, onFileAdded, onFileDeleted }: Uploa
     <div
       className="rounded-[20px] p-5 flex flex-col gap-4"
       style={{
-        background: "rgba(255,255,255,0.72)",
+        background: "var(--ds-surface)",
         backdropFilter: "blur(12px)",
         WebkitBackdropFilter: "blur(12px)",
-        border: "1px solid rgba(255,255,255,0.7)",
-        boxShadow:
-          "0 0 0 1px rgba(0,0,0,0.02), 0 1px 2px rgba(0,0,0,0.03), 0 8px 24px rgba(0,0,0,0.04)",
+        border: "1px solid var(--ds-border)",
+        boxShadow: "var(--ds-shadow-soft)",
       }}
     >
       {/* Zone header */}
@@ -278,14 +277,14 @@ function UploadZone({ cat, projectId, files, onFileAdded, onFileDeleted }: Uploa
         onDrop={onDrop}
         className="rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-2 py-6 px-4 text-center cursor-pointer select-none transition-all duration-200"
         style={{
-          borderColor: dragging ? "var(--ds-mint)" : "rgba(0,0,0,0.09)",
-          background: dragging ? "var(--ds-mint-bg)" : "rgba(0,0,0,0.01)",
+          borderColor: dragging ? "var(--ds-mint)" : "rgba(255,255,255,0.08)",
+          background: dragging ? "var(--ds-mint-bg)" : "rgba(255,255,255,0.02)",
           outline: "none",
         }}
       >
         <div
           className="w-8 h-8 rounded-xl flex items-center justify-center transition-colors"
-          style={{ background: dragging ? "var(--ds-mint-bg-active)" : "rgba(0,0,0,0.04)" }}
+          style={{ background: dragging ? "var(--ds-mint-bg-active)" : "rgba(255,255,255,0.05)" }}
         >
           <UploadIcon
             size={16}
@@ -343,7 +342,7 @@ function UploadZone({ cat, projectId, files, onFileAdded, onFileDeleted }: Uploa
             <div
               key={file.id}
               className="flex items-center gap-3 rounded-xl px-3 py-2.5 group transition-colors"
-              style={{ background: "rgba(0,0,0,0.02)", border: "1px solid rgba(0,0,0,0.04)" }}
+              style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}
             >
               <div style={{ color: "var(--ds-text-tertiary)", flexShrink: 0 }}>
                 {fileIcon(file.file_type)}
@@ -399,11 +398,11 @@ function FilesRecap({ files, onDelete }: { files: UploadRecord[]; onDelete: (id:
     <div
       className="rounded-[20px] p-5"
       style={{
-        background: "rgba(255,255,255,0.72)",
+        background: "var(--ds-surface)",
         backdropFilter: "blur(12px)",
         WebkitBackdropFilter: "blur(12px)",
-        border: "1px solid rgba(255,255,255,0.7)",
-        boxShadow: "0 0 0 1px rgba(0,0,0,0.02), 0 1px 2px rgba(0,0,0,0.03), 0 8px 24px rgba(0,0,0,0.04)",
+        border: "1px solid var(--ds-border)",
+        boxShadow: "var(--ds-shadow-soft)",
       }}
     >
       {/* Header */}
@@ -430,7 +429,7 @@ function FilesRecap({ files, onDelete }: { files: UploadRecord[]; onDelete: (id:
           <div
             key={file.id}
             className="flex items-center gap-3 rounded-xl px-3 py-2.5 group transition-colors"
-            style={{ background: "rgba(0,0,0,0.02)", border: "1px solid rgba(0,0,0,0.04)" }}
+            style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}
           >
             <div style={{ color: "var(--ds-text-tertiary)", flexShrink: 0 }}>
               {fileIcon(file.file_type)}

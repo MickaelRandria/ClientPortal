@@ -48,7 +48,7 @@ function SidebarIcon({
       className={cn(
         "relative flex items-center justify-center",
         "w-12 h-12 rounded-2xl transition-all duration-300",
-        isActive ? "bg-[var(--ds-mint)] shadow-sm" : "hover:bg-[var(--ds-surface-hover)]"
+        isActive ? "bg-[var(--ds-mint)] shadow-[0_4px_16px_rgba(139,92,246,0.3)]" : "hover:bg-[var(--ds-surface-hover)]"
       )}
     >
       <Icon
@@ -60,8 +60,8 @@ function SidebarIcon({
       {notification && (
         <span
           aria-label="Nouveau message"
-          className="absolute top-3 right-3 w-2 h-2 rounded-full bg-red-400"
-          style={{ border: "2px solid #ffffff" }}
+          className="absolute top-3 right-3 w-2 h-2 rounded-full bg-red-500"
+          style={{ border: "2px solid var(--ds-surface-solid)" }}
         />
       )}
     </Link>
@@ -96,16 +96,12 @@ export default function Sidebar() {
         zIndex: 50,
       }}
     >
-      {/* Logo - Minimalist */}
-      <div
-        className="w-12 h-12 rounded-2xl flex items-center justify-center mb-6 shrink-0 shadow-sm"
-        style={{
-          background: "var(--ds-surface-solid)",
-          border: "1px solid var(--ds-border-subtle)",
-        }}
+      <Link
+        href="/dashboard"
+        className="w-16 h-12 flex items-center justify-center mb-6 shrink-0 transition-all hover:scale-105"
       >
-        <div className="w-5 h-5 rounded-full bg-[var(--ds-mint)]" />
-      </div>
+        <img src="/logo-koko.png" alt="Koko Prod" className="w-full h-full object-contain" />
+      </Link>
 
       {/* Main nav */}
       <nav className="flex flex-col items-center gap-3 w-full px-3">
@@ -140,12 +136,12 @@ export default function Sidebar() {
           type="button"
           title="Déconnexion"
           onClick={handleLogout}
-          className="flex items-center justify-center w-12 h-12 rounded-2xl transition-all duration-200 hover:bg-red-50"
+          className="flex items-center justify-center w-12 h-12 rounded-2xl transition-all duration-200 hover:bg-red-500/10 hover:border hover:border-red-500/20"
         >
           <LogOut
             size={22}
             strokeWidth={1.8}
-            style={{ color: "var(--ds-text-tertiary)" }}
+            className="text-[var(--ds-text-tertiary)] hover:text-red-400"
           />
         </button>
       </nav>

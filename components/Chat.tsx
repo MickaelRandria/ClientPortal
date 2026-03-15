@@ -207,12 +207,11 @@ export default function Chat({ projectId, senderType, senderName, initialMessage
     <div
       className="flex flex-col overflow-hidden rounded-[28px]"
       style={{
-        background: "rgba(255,255,255,0.72)",
+        background: "var(--ds-surface)",
         backdropFilter: "blur(12px)",
         WebkitBackdropFilter: "blur(12px)",
-        border: "1px solid rgba(255,255,255,0.7)",
-        boxShadow:
-          "0 0 0 1px rgba(0,0,0,0.02), 0 1px 2px rgba(0,0,0,0.03), 0 20px 40px rgba(0,0,0,0.04)",
+        border: "1px solid var(--ds-border)",
+        boxShadow: "var(--ds-shadow-soft)",
         height: "clamp(340px, 62vh, 680px)",
       }}
     >
@@ -235,7 +234,7 @@ export default function Chat({ projectId, senderType, senderName, initialMessage
               <div key={group.dateKey}>
                 {/* Date separator */}
                 <div className="flex items-center gap-3 my-4">
-                  <div className="flex-1 h-px" style={{ background: "rgba(0,0,0,0.06)" }} />
+                  <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.06)" }} />
                   <span
                     className="text-[11px] font-bold uppercase shrink-0"
                     style={{
@@ -245,8 +244,8 @@ export default function Chat({ projectId, senderType, senderName, initialMessage
                   >
                     {formatDateGroup(group.messages[0].created_at)}
                   </span>
-                  <div className="flex-1 h-px" style={{ background: "rgba(0,0,0,0.06)" }} />
-                </div>
+                    <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.06)" }} />
+                  </div>
 
                 {/* Bubbles */}
                 <div className="space-y-3">
@@ -272,14 +271,16 @@ export default function Chat({ projectId, senderType, senderName, initialMessage
                           style={
                             isMine
                               ? {
-                                  background: "#34D399",
+                                  background: "var(--ds-mint)",
                                   color: "#fff",
                                   borderBottomRightRadius: "5px",
+                                  boxShadow: "0 4px 12px rgba(139, 92, 246, 0.25)",
                                 }
                               : {
-                                  background: "rgba(0,0,0,0.06)",
+                                  background: "rgba(255,255,255,0.06)",
                                   color: "var(--ds-text-primary)",
                                   borderBottomLeftRadius: "5px",
+                                  border: "1px solid rgba(255,255,255,0.05)",
                                 }
                           }
                         >
@@ -310,7 +311,7 @@ export default function Chat({ projectId, senderType, senderName, initialMessage
       <div
         ref={textareaContainerRef}
         className="shrink-0 flex items-end gap-3 px-4 py-3"
-        style={{ borderTop: "1px solid rgba(0,0,0,0.05)" }}
+        style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}
       >
         <textarea
           ref={textareaRef}
@@ -333,8 +334,9 @@ export default function Chat({ projectId, senderType, senderName, initialMessage
           disabled={!canSend}
           className="shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200"
           style={{
-            background: canSend ? "#34D399" : "rgba(0,0,0,0.06)",
+            background: canSend ? "var(--ds-mint)" : "rgba(255,255,255,0.05)",
             transform: canSend ? "scale(1)" : "scale(0.95)",
+            boxShadow: canSend ? "0 4px 12px rgba(139, 92, 246, 0.3)" : "none",
           }}
         >
           <Send

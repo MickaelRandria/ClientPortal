@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
+import { createServerClient } from "@/lib/supabase";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
@@ -14,7 +15,36 @@ export async function POST(request: NextRequest) {
 
     const portalUrl = `${APP_URL}/p/${slug}`;
 
-    const html = `<!DOCTYPE html>
+    // Fetch custom template from profile
+    const supabase = createServerClient();
+    const { data: profile } = await supabase
+      .from("projects")
+      .select("admin_id")
+      .eq("id", (request as any).projectId || "") // We need the adminId, better to get it from project
+      .single();
+    
+    // Actually we are passed clientName etc, let's just use service role to find the admin
+    const { data: projectData } = await supabase
+      .from("projects")
+      .select("admin_id")
+      .eq("slug", slug)
+      .single();
+
+    const { data: adminProfile } = await supabase
+      .from("profiles")
+      .select("welcome_email_subject, welcome_email_body")
+      .eq("id", projectData?.admin_id)
+      .single();
+
+    const subject = adminProfile?.welcome_email_subject 
+      ? adminProfile.welcome_email_subject.replace("${clientName}", clientName)
+      : `🎉 Votre espace projet est prêt — ${clientName}`;
+
+    const customBody = adminProfile?.welcome_email_body
+      ? adminProfile.welcome_email_body.replace("${clientName}", clientName).replace("${portalUrl}", portalUrl)
+      : null;
+
+    const html = customBody || `<!DOCTYPE html>
 <html lang="fr">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:0;background:#F4F5F7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
@@ -90,7 +120,7 @@ export async function POST(request: NextRequest) {
     const { error } = await resend.emails.send({
       from: "Client Portal <onboarding@resend.dev>",
       to: clientEmail,
-      subject: `🎉 Votre espace projet est prêt — ${clientName}`,
+      subject,
       html,
     });
 

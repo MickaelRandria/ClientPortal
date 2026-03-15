@@ -25,7 +25,7 @@ function SummaryField({
 }) {
   if (!value) return null;
   return (
-    <div className="rounded-2xl p-4 space-y-2 bg-black/5 border border-black/5">
+    <div className="rounded-2xl p-4 space-y-2 bg-white/5 border border-white/5">
       <div className="flex items-center gap-2">
         <span className="text-[var(--ds-mint-text)]">{icon}</span>
         <p className="text-[11px] font-bold uppercase text-[var(--ds-text-tertiary)] tracking-wider">
@@ -149,7 +149,7 @@ export default function AISummaryTab({
 
       {/* Points d'attention */}
       {summary.points_attention && summary.points_attention.length > 0 && (
-        <div className="rounded-[2rem] p-5 space-y-3 bg-[var(--ds-yellow-bg)] border border-yellow-200/50">
+        <div className="rounded-[2rem] p-5 space-y-3 bg-[var(--ds-yellow-bg)] border border-[var(--ds-yellow)]/20 shadow-[0_0_20px_rgba(251,191,36,0.05)]">
           <div className="flex items-center gap-2">
             <AlertCircle size={14} strokeWidth={1.8} className="text-[var(--ds-yellow-text)]" />
             <p className="text-[11px] font-bold uppercase text-[var(--ds-yellow-text)] tracking-wider">
@@ -159,7 +159,7 @@ export default function AISummaryTab({
           <ul className="space-y-1.5">
             {summary.points_attention.map((point, i) => (
               <li key={i} className="flex items-start gap-2 text-sm text-[var(--ds-yellow-text)]">
-                <span className="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 bg-[var(--ds-yellow-text)]" />
+                <span className="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 bg-[var(--ds-yellow-text)] shadow-[0_0_8px_var(--ds-yellow-text)]" />
                 {point}
               </li>
             ))}

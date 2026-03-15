@@ -10,92 +10,73 @@
 
 @layer base {
   :root {
-    /* ── shadcn/ui tokens (neutral palette) ─────────────────────── */
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
-    --destructive: oklch(0.58 0.22 27);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
+    /* ── shadcn/ui tokens (dark neutral palette adapted for deep purple) ─────────────────────── */
+    --background: #09040F;
+    --foreground: #FFFFFF;
+    --card: #120A1C;
+    --card-foreground: #FFFFFF;
+    --popover: #120A1C;
+    --popover-foreground: #FFFFFF;
+    --primary: #8B5CF6;
+    --primary-foreground: #FFFFFF;
+    --secondary: #1E152E;
+    --secondary-foreground: #A79FCB;
+    --muted: #1E152E;
+    --muted-foreground: #6D5C8A;
+    --accent: #2A1B3D;
+    --accent-foreground: #FFFFFF;
+    --destructive: #7F1D1D;
+    --border: #2A1B3D;
+    --input: #1E152E;
+    --ring: #8B5CF6;
     --radius: 0.625rem;
 
-    /* ── Premium Bento Master design tokens ─────────────────────── */
-    --ds-bg: #F8F9FA;
-    --ds-surface: rgba(255, 255, 255, 0.85);
-    --ds-surface-solid: #ffffff;
-    --ds-surface-hover: rgba(255, 255, 255, 0.95);
-    --ds-border: rgba(255, 255, 255, 0.8);
-    --ds-border-subtle: rgba(0, 0, 0, 0.03);
+    /* ── Koko Prod Dark tokens ─────────────────────── */
+    --ds-bg: #09040F;
+    --ds-surface: rgba(18, 10, 28, 0.72);
+    --ds-surface-solid: #120A1C;
+    --ds-surface-hover: rgba(26, 15, 42, 0.85);
+    --ds-border: rgba(42, 27, 61, 0.8);
+    --ds-border-subtle: rgba(255, 255, 255, 0.05);
 
-    /* Text — opacity-based */
-    --ds-text-primary: #1A1A1A;
-    --ds-text-secondary: #6B7280;
-    --ds-text-tertiary: #9CA3AF;
+    /* Text — opacity-based / high-contrast */
+    --ds-text-primary: #FFFFFF;
+    --ds-text-secondary: #A79FCB;
+    --ds-text-tertiary: #6D5C8A;
 
-    /* Soft Pastel Accents */
-    --ds-mint: #A7F3D0;
-    --ds-mint-hover: #6EE7B7;
-    --ds-mint-text: #065F46;
-    --ds-mint-bg: rgba(167, 243, 208, 0.25);
-    --ds-mint-bg-active: rgba(167, 243, 208, 0.40);
+    /* Electric Purple Accents */
+    --ds-mint: #8B5CF6;
+    --ds-mint-hover: #7C3AED;
+    --ds-mint-text: #FFFFFF;
+    --ds-mint-bg: rgba(139, 92, 246, 0.15);
+    --ds-mint-bg-active: rgba(139, 92, 246, 0.25);
 
-    --ds-yellow: #FEF3C7;
-    --ds-yellow-text: #92400E;
-    --ds-yellow-bg: rgba(254, 243, 199, 0.70);
+    --ds-yellow: #FBBF24;
+    --ds-yellow-text: #FBBF24;
+    --ds-yellow-bg: rgba(251, 191, 36, 0.10);
 
     --ds-blue-bg: rgba(59, 130, 246, 0.10);
-    --ds-blue-text: #1E40AF;
+    --ds-blue-text: #60A5FA;
 
     --ds-red-bg: rgba(239, 68, 68, 0.10);
-    --ds-red-text: #991B1B;
+    --ds-red-text: #F87171;
 
     /* Aliases for legacy inline styles */
-    --ds-shadow-glass: var(--ds-shadow-soft);
-    --ds-shadow-glass-hover: var(--ds-shadow-soft-hover);
+    --ds-shadow-glass: var(--ds-shadow-purple);
+    --ds-shadow-glass-hover: var(--ds-shadow-purple-hover);
 
     /* Radius */
     --radius: 2rem; /* 32px for cards */
     --radius-pill: 9999px;
 
-    /* Soft UI Shadows */
-    --ds-shadow-soft: 0 10px 30px -10px rgba(0, 0, 0, 0.04),
-                      0 4px 6px -2px rgba(0, 0, 0, 0.02);
-    --ds-shadow-soft-hover: 0 20px 40px -12px rgba(0, 0, 0, 0.08),
-                            0 8px 12px -4px rgba(0, 0, 0, 0.04);
+    /* Neon Glow UI Shadows */
+    --ds-shadow-soft: 0 4px 20px rgba(0, 0, 0, 0.3);
+    --ds-shadow-soft-hover: 0 8px 32px rgba(0, 0, 0, 0.5);
+    --ds-shadow-purple: 0 10px 40px -10px rgba(139, 92, 246, 0.3);
+    --ds-shadow-purple-hover: 0 20px 60px -12px rgba(139, 92, 246, 0.5);
   }
 
-  .dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.87 0.00 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.371 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
-  }
+  /* No explicit .dark needed since :root is now dark */
 
   * {
     @apply border-border;
@@ -114,14 +95,14 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Grain texture overlay on body */
+  /* Specific Grain texture for dark mode */
   body::after {
     content: "";
     position: fixed;
     inset: 0;
     pointer-events: none;
     z-index: 9999;
-    opacity: 0.025;
+    opacity: 0.15;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23noise)'/%3E%3C/svg%3E");
     background-repeat: repeat;
   }
@@ -132,8 +113,8 @@
   /* Bento Card / Glass card */
   .glass-card {
     background: var(--ds-surface);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
     border: 1px solid var(--ds-border);
     border-radius: var(--radius);
     box-shadow: var(--ds-shadow-soft);
@@ -144,6 +125,7 @@
     transform: translateY(-4px);
     background: var(--ds-surface-hover);
     box-shadow: var(--ds-shadow-soft-hover);
+    border-color: rgba(139, 92, 246, 0.3);
   }
 
   /* Buttons - Pill shaped */
@@ -157,39 +139,41 @@
     border: none;
     cursor: pointer;
     transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    box-shadow: 0 4px 12px rgba(167, 243, 208, 0.3);
+    box-shadow: 0 8px 16px rgba(139, 92, 246, 0.3);
   }
 
   .btn-mint:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(167, 243, 208, 0.4);
-    filter: brightness(1.02);
+    box-shadow: 0 12px 28px rgba(139, 92, 246, 0.45);
+    filter: brightness(1.1);
   }
 
   .btn-dark {
-    background: rgba(0, 0, 0, 0.88);
+    background: rgba(255, 255, 255, 0.1);
     color: #fff;
     border-radius: 100px;
     font-weight: 700;
     font-size: 13px;
     padding: 10px 22px;
-    border: none;
+    border: 1px solid rgba(255, 255, 255, 0.1);
     cursor: pointer;
-    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
-                box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .btn-dark:hover {
     transform: translateY(-3px);
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.20);
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
   }
 
   .btn-glass {
-    background: rgba(255, 255, 255, 0.72);
+    background: rgba(255, 255, 255, 0.05);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
-    border: 1px solid rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 14px;
+    color: #fff;
     font-weight: 600;
     font-size: 13px;
     padding: 10px 20px;
@@ -198,8 +182,9 @@
   }
 
   .btn-glass:hover {
-    background: rgba(255, 255, 255, 0.92);
+    background: rgba(255, 255, 255, 0.08);
     transform: translateY(-1px);
+    border-color: rgba(255, 255, 255, 0.2);
   }
 
   /* Badges / pills */
