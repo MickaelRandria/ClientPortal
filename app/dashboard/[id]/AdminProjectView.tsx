@@ -21,6 +21,7 @@ import {
   Palette,
   X,
   Trash2,
+  MessageCircle,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -32,6 +33,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase";
+import { logActivity } from "@/lib/activity";
 import Chat, { type Message } from "@/components/Chat";
 import { cn } from "@/lib/utils";
 import AISummaryTab from "@/components/AISummaryTab";
@@ -66,6 +68,16 @@ interface Brief {
   livrables_attendus?: string;
   deadline?: string;
   notes_libres?: string;
+  format_souhaite?: string;
+  dialogues?: string;
+  brief_status?: string;
+}
+
+interface BriefComment {
+  id?: string;
+  brief_field: string;
+  content: string;
+  field_status: "pending" | "approved" | "rejected";
 }
 
 interface Upload {
@@ -94,6 +106,23 @@ const STATUS_OPTIONS = [
   { value: "active",    label: "Actif",      bg: "var(--ds-mint-bg)", color: "var(--ds-mint-text)" },
   { value: "completed", label: "Terminé",    bg: "var(--ds-blue-bg)", color: "var(--ds-blue-text)" },
 ] as const;
+
+const BRIEF_STATUS_BADGE: Record<string, { label: string; bg: string; color: string }> = {
+  draft:     { label: "Non soumis",       bg: "rgba(156,163,175,0.12)", color: "#9CA3AF" },
+  submitted: { label: "Soumis",           bg: "rgba(245,158,11,0.12)",  color: "#F59E0B" },
+  reviewed:  { label: "Retours envoyés",  bg: "rgba(59,130,246,0.12)",  color: "#3B82F6" },
+  approved:  { label: "Brief validé ✓",   bg: "rgba(16,185,129,0.12)",  color: "#10B981" },
+};
+
+const BRIEF_DISPLAY_FIELDS: { key: keyof Brief; label: string }[] = [
+  { key: "objectif",           label: "Vision / Idée" },
+  { key: "cible",              label: "Cible visée" },
+  { key: "ton_souhaite",       label: "Ton souhaité" },
+  { key: "livrables_attendus", label: "Livrables attendus" },
+  { key: "format_souhaite",    label: "Format souhaité" },
+  { key: "dialogues",          label: "Texte / Dialogues / Voix off" },
+  { key: "notes_libres",       label: "Notes libres" },
+];
 
 const CATEGORY_CONFIG: Record<string, { label: string; Icon: React.ElementType }> = {
   charte:  { label: "Charte graphique", Icon: Palette },
@@ -127,11 +156,9 @@ function cleanPhone(phone: string): string {
 function buildWhatsAppUrl(phone: string | null | undefined, name: string, slug: string, template?: string): string {
   const link = `${typeof window !== "undefined" ? window.location.origin : ""}/p/${slug}`;
   const defaultMsg = `Bonjour ${name} 👋\n\nVotre espace projet est prêt ! Vous pouvez y déposer votre brief, vos fichiers et votre charte graphique.\n\n👉 Accédez à votre espace : ${link}\n\nN'hésitez pas si vous avez des questions !`;
-  
-  const msg = template 
+  const msg = template
     ? template.replace("${name}", name).replace("${link}", link)
     : defaultMsg;
-
   const encoded = encodeURIComponent(msg);
   if (phone && phone.trim()) return `https://wa.me/${cleanPhone(phone)}?text=${encoded}`;
   return `https://wa.me/?text=${encoded}`;
@@ -149,30 +176,313 @@ function isImage(mimeType: string | null) {
   return !!mimeType?.startsWith("image/");
 }
 
-/* ── Sub-components ──────────────────────────────────────────────── */
+function storagePath(fileUrl: string): string {
+  return fileUrl.split("/project-files/")[1] ?? "";
+}
 
+/* ── BriefReviewSection ──────────────────────────────────────────── */
 
-function BriefField({ label, value }: { label: string; value?: string }) {
-  if (!value) return null;
+function BriefReviewSection({
+  brief,
+  projectId,
+  briefStatus,
+  onBriefStatusChange,
+}: {
+  brief: Brief;
+  projectId: string;
+  briefStatus: string;
+  onBriefStatusChange: (status: string) => void;
+}) {
+  const [comments, setComments] = useState<Record<string, BriefComment>>({});
+  const [openField, setOpenField] = useState<string | null>(null);
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [savingField, setSavingField] = useState<string | null>(null);
+  const [updatingBriefStatus, setUpdatingBriefStatus] = useState(false);
+
+  // Load existing comments
+  useEffect(() => {
+    const supabase = createClient();
+    supabase
+      .from("brief_comments")
+      .select("id, brief_field, content, field_status")
+      .eq("project_id", projectId)
+      .then(({ data }) => {
+        if (data) {
+          const byField: Record<string, BriefComment> = {};
+          const initDrafts: Record<string, string> = {};
+          for (const c of data) {
+            byField[c.brief_field] = c;
+            initDrafts[c.brief_field] = c.content;
+          }
+          setComments(byField);
+          setDrafts(initDrafts);
+        }
+      });
+  }, [projectId]);
+
+  async function saveComment(fieldKey: string) {
+    const content = (drafts[fieldKey] ?? "").trim();
+    if (!content) return;
+    setSavingField(fieldKey);
+    const supabase = createClient();
+    const existing = comments[fieldKey];
+
+    let result;
+    if (existing?.id) {
+      result = await supabase
+        .from("brief_comments")
+        .update({ content })
+        .eq("id", existing.id)
+        .select("id, brief_field, content, field_status")
+        .single();
+    } else {
+      result = await supabase
+        .from("brief_comments")
+        .insert({ project_id: projectId, brief_field: fieldKey, content, field_status: "pending" })
+        .select("id, brief_field, content, field_status")
+        .single();
+    }
+
+    setSavingField(null);
+    if (result.error) {
+      toast.error("Erreur lors de la sauvegarde du commentaire.");
+    } else {
+      setComments((prev) => ({ ...prev, [fieldKey]: result.data }));
+      setOpenField(null);
+      toast.success("Commentaire enregistré.");
+      logActivity({ projectId, actorType: "admin", action: "comment_added" });
+    }
+  }
+
+  async function setFieldStatus(fieldKey: string, status: "approved" | "rejected") {
+    const supabase = createClient();
+    const existing = comments[fieldKey];
+
+    if (existing?.id) {
+      const { data, error } = await supabase
+        .from("brief_comments")
+        .update({ field_status: status })
+        .eq("id", existing.id)
+        .select("id, brief_field, content, field_status")
+        .single();
+      if (!error && data) setComments((prev) => ({ ...prev, [fieldKey]: data }));
+    } else {
+      const { data, error } = await supabase
+        .from("brief_comments")
+        .insert({ project_id: projectId, brief_field: fieldKey, content: "", field_status: status })
+        .select("id, brief_field, content, field_status")
+        .single();
+      if (!error && data) setComments((prev) => ({ ...prev, [fieldKey]: data }));
+    }
+  }
+
+  async function sendReview() {
+    setUpdatingBriefStatus(true);
+    const supabase = createClient();
+    await supabase.from("briefs").update({ brief_status: "reviewed" }).eq("project_id", projectId);
+    onBriefStatusChange("reviewed");
+    logActivity({ projectId, actorType: "admin", action: "brief_reviewed" });
+    toast.success("Retours envoyés au client.");
+    setUpdatingBriefStatus(false);
+  }
+
+  async function approveBrief() {
+    setUpdatingBriefStatus(true);
+    const supabase = createClient();
+    await supabase.from("briefs").update({ brief_status: "approved" }).eq("project_id", projectId);
+    onBriefStatusChange("approved");
+    logActivity({ projectId, actorType: "admin", action: "brief_approved" });
+    toast.success("Brief validé !");
+    setUpdatingBriefStatus(false);
+  }
+
+  const statusBadge = BRIEF_STATUS_BADGE[briefStatus] ?? BRIEF_STATUS_BADGE.draft;
+
   return (
-    <div className="space-y-1.5">
-      <p className="text-[11px] font-bold uppercase" style={{ color: "var(--ds-text-tertiary)", letterSpacing: "0.06em" }}>
-        {label}
-      </p>
-      <p className="text-sm leading-relaxed" style={{ color: "var(--ds-text-primary)" }}>
-        {value}
-      </p>
+    <div className="space-y-8">
+      {/* Status + action buttons */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div
+          className="px-3 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider"
+          style={{ background: statusBadge.bg, color: statusBadge.color }}
+        >
+          {statusBadge.label}
+        </div>
+        <div className="flex gap-2">
+          {briefStatus === "submitted" && (
+            <button
+              onClick={sendReview}
+              disabled={updatingBriefStatus}
+              className="h-9 px-4 rounded-full text-xs font-bold uppercase tracking-wide transition-all text-white disabled:opacity-60 flex items-center gap-1.5"
+              style={{ background: "#3B82F6" }}
+            >
+              {updatingBriefStatus ? <Loader2 size={13} className="animate-spin" /> : null}
+              Envoyer les retours
+            </button>
+          )}
+          {(briefStatus === "submitted" || briefStatus === "reviewed") && (
+            <button
+              onClick={approveBrief}
+              disabled={updatingBriefStatus}
+              className="h-9 px-4 rounded-full text-xs font-bold uppercase tracking-wide transition-all disabled:opacity-60 flex items-center gap-1.5"
+              style={{ background: "var(--ds-mint-bg)", color: "var(--ds-mint-text)" }}
+            >
+              {updatingBriefStatus ? <Loader2 size={13} className="animate-spin" /> : null}
+              Valider le brief ✓
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Fields */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {BRIEF_DISPLAY_FIELDS.map(({ key, label }) => {
+          const value = brief[key];
+          if (!value) return null;
+          const comment = comments[key];
+          const isOpen = openField === key;
+
+          return (
+            <div key={key} className={cn("space-y-2", key === "objectif" || key === "dialogues" || key === "notes_libres" ? "md:col-span-2" : "")}>
+              {/* Label + review buttons */}
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <p
+                    className="text-[11px] font-bold uppercase tracking-widest mb-1"
+                    style={{ color: "var(--ds-text-tertiary)" }}
+                  >
+                    {label}
+                  </p>
+                  <p className="text-sm leading-relaxed" style={{ color: "var(--ds-text-primary)", whiteSpace: "pre-wrap" }}>
+                    {value}
+                  </p>
+                </div>
+                {/* Action buttons */}
+                <div className="flex items-center gap-1 shrink-0 pt-5">
+                  <button
+                    onClick={() => setFieldStatus(key, "approved")}
+                    className={cn(
+                      "w-7 h-7 rounded-lg flex items-center justify-center text-sm font-bold transition-all",
+                      comment?.field_status === "approved"
+                        ? "bg-green-500/20 text-green-400"
+                        : "bg-white/5 text-[var(--ds-text-tertiary)] hover:bg-green-500/10 hover:text-green-400"
+                    )}
+                    title="Valider cette section"
+                  >
+                    ✓
+                  </button>
+                  <button
+                    onClick={() => setFieldStatus(key, "rejected")}
+                    className={cn(
+                      "w-7 h-7 rounded-lg flex items-center justify-center text-sm font-bold transition-all",
+                      comment?.field_status === "rejected"
+                        ? "bg-red-500/20 text-red-400"
+                        : "bg-white/5 text-[var(--ds-text-tertiary)] hover:bg-red-500/10 hover:text-red-400"
+                    )}
+                    title="Marquer à revoir"
+                  >
+                    ✕
+                  </button>
+                  <button
+                    onClick={() => {
+                      setOpenField(isOpen ? null : key);
+                      if (!isOpen) {
+                        setDrafts((prev) => ({ ...prev, [key]: comment?.content ?? "" }));
+                      }
+                    }}
+                    className="h-7 px-2.5 rounded-lg flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide bg-white/5 text-[var(--ds-text-tertiary)] hover:bg-white/10 transition-all"
+                  >
+                    <MessageCircle size={11} strokeWidth={2} />
+                    {comment?.content ? "Modifier" : "Commenter"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Existing comment (read mode) */}
+              {comment?.content && !isOpen && (
+                <div
+                  className="p-3 rounded-xl border-l-[3px]"
+                  style={{
+                    background:
+                      comment.field_status === "approved" ? "rgba(16,185,129,0.06)" :
+                      comment.field_status === "rejected"  ? "rgba(239,68,68,0.06)"  : "rgba(139,92,246,0.06)",
+                    borderLeftColor:
+                      comment.field_status === "approved" ? "#10B981" :
+                      comment.field_status === "rejected"  ? "#EF4444" : "#8B5CF6",
+                  }}
+                >
+                  <p
+                    className="text-[10px] font-bold uppercase tracking-wider mb-1"
+                    style={{
+                      color:
+                        comment.field_status === "approved" ? "#10B981" :
+                        comment.field_status === "rejected"  ? "#EF4444" : "#8B5CF6",
+                    }}
+                  >
+                    Votre commentaire
+                    {comment.field_status === "approved" && " · Validé ✓"}
+                    {comment.field_status === "rejected" && " · À revoir"}
+                  </p>
+                  <p className="text-xs" style={{ color: "var(--ds-text-secondary)" }}>
+                    {comment.content}
+                  </p>
+                </div>
+              )}
+
+              {/* Inline comment editor */}
+              {isOpen && (
+                <div className="flex flex-col gap-2">
+                  <textarea
+                    className="w-full rounded-xl bg-white/[0.03] border border-white/10 p-3 text-sm placeholder:text-[var(--ds-text-tertiary)] resize-none focus:outline-none focus:border-[var(--ds-mint)]/40 min-h-[80px] transition-colors"
+                    style={{ color: "var(--ds-text-primary)" }}
+                    placeholder="Votre commentaire pour cette section..."
+                    value={drafts[key] ?? ""}
+                    onChange={(e) => setDrafts((prev) => ({ ...prev, [key]: e.target.value }))}
+                  />
+                  <div className="flex gap-2 justify-end">
+                    <button
+                      onClick={() => setOpenField(null)}
+                      className="h-8 px-4 rounded-full text-xs font-bold bg-white/5 text-[var(--ds-text-secondary)] hover:bg-white/10 transition-all"
+                    >
+                      Annuler
+                    </button>
+                    <button
+                      onClick={() => saveComment(key)}
+                      disabled={savingField === key}
+                      className="h-8 px-4 rounded-full text-xs font-bold text-white transition-all disabled:opacity-60"
+                      style={{ background: "var(--ds-mint)" }}
+                    >
+                      {savingField === key ? "…" : "Enregistrer"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {/* Deadline — special display, no comment needed */}
+        {brief?.deadline && (
+          <div className="space-y-1.5">
+            <p className="text-[11px] font-bold uppercase text-[var(--ds-text-tertiary)] tracking-widest">
+              Deadline
+            </p>
+            <div className="flex items-center gap-3 bg-[var(--ds-mint-bg)] w-fit px-4 py-2 rounded-full border border-[var(--ds-mint)]/20 shadow-[0_0_15px_rgba(139,92,246,0.1)]">
+              <Calendar size={15} className="text-[var(--ds-mint-text)]" />
+              <p className="text-sm font-extrabold text-[var(--ds-mint-text)]">
+                {new Date(brief.deadline!).toLocaleDateString("fr-FR", {
+                  day: "numeric", month: "long", year: "numeric",
+                })}
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-
-
 /* ── AdminFilesTab ───────────────────────────────────────────────── */
-
-function storagePath(fileUrl: string): string {
-  return fileUrl.split("/project-files/")[1] ?? "";
-}
 
 function AdminFilesTab({ uploads: initialUploads }: { uploads: Upload[] }) {
   const [uploads, setUploads] = useState<Upload[]>(initialUploads);
@@ -181,12 +491,8 @@ function AdminFilesTab({ uploads: initialUploads }: { uploads: Upload[] }) {
   async function handleDelete(file: Upload) {
     const supabase = createClient();
     const path = storagePath(file.file_url);
-
     const { error } = await supabase.storage.from("project-files").remove([path]);
-    if (error) {
-      toast.error("Erreur lors de la suppression.");
-      return;
-    }
+    if (error) { toast.error("Erreur lors de la suppression."); return; }
     await supabase.from("uploads").delete().eq("id", file.id);
     setUploads((prev) => prev.filter((u) => u.id !== file.id));
     toast.success("Fichier supprimé.");
@@ -202,12 +508,9 @@ function AdminFilesTab({ uploads: initialUploads }: { uploads: Upload[] }) {
       <div
         className="rounded-[28px] p-12 flex flex-col items-center justify-center text-center gap-4"
         style={{
-          background: "var(--ds-surface)",
-          backdropFilter: "blur(12px)",
-          WebkitBackdropFilter: "blur(12px)",
-          border: "1px solid var(--ds-border)",
-          boxShadow: "var(--ds-shadow-soft)",
-          minHeight: "240px",
+          background: "var(--ds-surface)", backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)", border: "1px solid var(--ds-border)",
+          boxShadow: "var(--ds-shadow-soft)", minHeight: "240px",
         }}
       >
         <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: "rgba(255,255,255,0.05)" }}>
@@ -236,71 +539,42 @@ function AdminFilesTab({ uploads: initialUploads }: { uploads: Upload[] }) {
             key={cat}
             className="rounded-[24px] p-5"
             style={{
-              background: "var(--ds-surface)",
-              backdropFilter: "blur(12px)",
-              WebkitBackdropFilter: "blur(12px)",
-              border: "1px solid var(--ds-border)",
+              background: "var(--ds-surface)", backdropFilter: "blur(12px)",
+              WebkitBackdropFilter: "blur(12px)", border: "1px solid var(--ds-border)",
               boxShadow: "var(--ds-shadow-soft)",
             }}
           >
-            {/* Category header */}
             <div className="flex items-center gap-3 mb-4">
               <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: "var(--ds-mint-bg)" }}>
                 <CatIcon size={15} strokeWidth={1.8} style={{ color: "var(--ds-mint-text)" }} />
               </div>
-              <p className="font-bold text-sm" style={{ color: "var(--ds-text-primary)" }}>
-                {config.label}
-              </p>
-              <span
-                className="ml-auto text-[11px] font-bold rounded-full px-2.5 py-1"
-                style={{ background: "var(--ds-mint-bg)", color: "var(--ds-mint-text)" }}
-              >
+              <p className="font-bold text-sm" style={{ color: "var(--ds-text-primary)" }}>{config.label}</p>
+              <span className="ml-auto text-[11px] font-bold rounded-full px-2.5 py-1" style={{ background: "var(--ds-mint-bg)", color: "var(--ds-mint-text)" }}>
                 {files.length}
               </span>
             </div>
 
-            {/* Image grid */}
             {files.some((f) => isImage(f.file_type)) ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
                 {files.filter((f) => isImage(f.file_type)).map((file) => (
                   <div key={file.id} className="group relative">
-                    <a
-                      href={file.file_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block"
-                    >
-                      <div
-                        className="rounded-2xl overflow-hidden aspect-square relative"
-                        style={{ background: "rgba(255,255,255,0.05)" }}
-                      >
+                    <a href={file.file_url} target="_blank" rel="noopener noreferrer" className="block">
+                      <div className="rounded-2xl overflow-hidden aspect-square relative" style={{ background: "rgba(255,255,255,0.05)" }}>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={file.file_url}
-                          alt={file.file_name}
-                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                        />
+                        <img src={file.file_url} alt={file.file_name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                          <Download
-                            size={18}
-                            strokeWidth={1.8}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity text-white drop-shadow"
-                          />
+                          <Download size={18} strokeWidth={1.8} className="opacity-0 group-hover:opacity-100 transition-opacity text-white drop-shadow" />
                         </div>
                       </div>
                     </a>
-                    {/* Delete button on image */}
                     <button
                       onClick={() => handleDelete(file)}
                       className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                       style={{ background: "rgba(239,68,68,0.9)" }}
-                      title="Supprimer"
                     >
                       <X size={11} strokeWidth={2.5} className="text-white" />
                     </button>
-                    <p className="text-xs mt-1.5 truncate font-bold" style={{ color: "var(--ds-text-secondary)" }}>
-                      {file.file_name}
-                    </p>
+                    <p className="text-xs mt-1.5 truncate font-bold" style={{ color: "var(--ds-text-secondary)" }}>{file.file_name}</p>
                     <p className="text-[11px]" style={{ color: "var(--ds-text-tertiary)" }}>
                       {formatSize(file.file_size)} · {formatDate(file.created_at)}
                     </p>
@@ -309,34 +583,24 @@ function AdminFilesTab({ uploads: initialUploads }: { uploads: Upload[] }) {
               </div>
             ) : null}
 
-            {/* Non-image files as list */}
             {files.filter((f) => !isImage(f.file_type)).map((file) => (
               <div
                 key={file.id}
                 className="flex items-center gap-3 rounded-xl px-3 py-2.5 group"
                 style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)", marginBottom: "6px" }}
               >
-                <div style={{ color: "var(--ds-text-tertiary)", flexShrink: 0 }}>
-                  {fileIcon(file.file_type)}
-                </div>
+                <div style={{ color: "var(--ds-text-tertiary)", flexShrink: 0 }}>{fileIcon(file.file_type)}</div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold truncate" style={{ color: "var(--ds-text-primary)" }}>
-                    {file.file_name}
-                  </p>
+                  <p className="text-xs font-bold truncate" style={{ color: "var(--ds-text-primary)" }}>{file.file_name}</p>
                   <p className="text-[11px]" style={{ color: "var(--ds-text-tertiary)" }}>
                     {formatSize(file.file_size)} · {formatDate(file.created_at)}
                   </p>
                 </div>
-                <a
-                  href={file.file_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  download
+                <a href={file.file_url} target="_blank" rel="noopener noreferrer" download
                   className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
                   style={{ background: "rgba(255,255,255,0.05)" }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = "var(--ds-mint-bg)")}
                   onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
-                  title="Télécharger"
                 >
                   <Download size={14} strokeWidth={1.8} style={{ color: "var(--ds-text-primary)" }} />
                 </a>
@@ -344,7 +608,6 @@ function AdminFilesTab({ uploads: initialUploads }: { uploads: Upload[] }) {
                   onClick={() => handleDelete(file)}
                   className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center opacity-40 group-hover:opacity-100 transition-opacity"
                   style={{ color: "var(--ds-red-text)" }}
-                  title="Supprimer"
                   onMouseEnter={(e) => (e.currentTarget.style.background = "var(--ds-red-bg)")}
                   onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                 >
@@ -373,14 +636,15 @@ export default function AdminProjectView({
   const [status, setStatus] = useState(project.status);
   const [copied, setCopied] = useState(false);
   const [brief, setBrief] = useState<Brief | null>(initialBrief);
+  const [briefStatus, setBriefStatus] = useState<string>(initialBrief?.brief_status ?? "draft");
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [waTemplate, setWaTemplate] = useState<string | undefined>();
 
   useEffect(() => {
     fetch("/api/profile")
-      .then(res => res.json())
-      .then(data => {
+      .then((res) => res.json())
+      .then((data) => {
         if (data.whatsapp_template) setWaTemplate(data.whatsapp_template);
       })
       .catch(() => {});
@@ -393,15 +657,12 @@ export default function AdminProjectView({
       .channel(`brief:${project.id}`)
       .on(
         "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "briefs",
-          filter: `project_id=eq.${project.id}`,
-        },
+        { event: "*", schema: "public", table: "briefs", filter: `project_id=eq.${project.id}` },
         (payload) => {
           if (payload.eventType === "INSERT" || payload.eventType === "UPDATE") {
-            setBrief(payload.new as Brief);
+            const updated = payload.new as Brief;
+            setBrief(updated);
+            setBriefStatus(updated.brief_status ?? "draft");
           }
         }
       )
@@ -410,7 +671,10 @@ export default function AdminProjectView({
     return () => { supabase.removeChannel(channel); };
   }, [project.id]);
 
-  const hasBrief = brief && Object.values(brief).some(Boolean);
+  const hasBrief = brief && Object.entries(brief)
+    .filter(([k]) => !["id", "project_id", "created_at", "updated_at", "brief_status"].includes(k))
+    .some(([, v]) => Boolean(v));
+
   const currentStatus = STATUS_OPTIONS.find((s) => s.value === status)!;
 
   async function handleStatusChange(newStatus: "draft" | "active" | "completed" | null) {
@@ -421,12 +685,10 @@ export default function AdminProjectView({
       .update({ status: newStatus })
       .eq("id", project.id);
 
-    if (error) {
-      toast.error("Erreur lors de la mise à jour du statut.");
-      return;
-    }
+    if (error) { toast.error("Erreur lors de la mise à jour du statut."); return; }
     setStatus(newStatus);
     toast.success("Statut mis à jour.");
+    logActivity({ projectId: project.id, actorType: "admin", action: "status_changed" });
   }
 
   async function handleCopyLink() {
@@ -476,10 +738,7 @@ export default function AdminProjectView({
               <ArrowLeft size={18} strokeWidth={2.2} className="text-[var(--ds-text-primary)]" />
             </button>
             <div className="hidden sm:flex items-center gap-2 text-xs font-bold text-[var(--ds-text-tertiary)] uppercase tracking-wider">
-              <button
-                onClick={() => router.push("/dashboard")}
-                className="hover:text-[var(--ds-text-primary)] transition-colors"
-              >
+              <button onClick={() => router.push("/dashboard")} className="hover:text-[var(--ds-text-primary)] transition-colors">
                 Dashboard
               </button>
               <ChevronRight size={14} strokeWidth={2.5} />
@@ -497,9 +756,7 @@ export default function AdminProjectView({
                 {project.client_name}
               </h1>
               {project.client_email && (
-                <p className="text-sm font-medium text-[var(--ds-text-tertiary)] truncate">
-                  {project.client_email}
-                </p>
+                <p className="text-sm font-medium text-[var(--ds-text-tertiary)] truncate">{project.client_email}</p>
               )}
             </div>
           </div>
@@ -509,11 +766,7 @@ export default function AdminProjectView({
             <Select value={status} onValueChange={handleStatusChange}>
               <SelectTrigger
                 className="w-auto h-10 rounded-full border-0 gap-2 px-5 text-[11px] font-extrabold uppercase shrink-0"
-                style={{
-                  background: currentStatus.bg,
-                  color: currentStatus.color,
-                  letterSpacing: "0.08em",
-                }}
+                style={{ background: currentStatus.bg, color: currentStatus.color, letterSpacing: "0.08em" }}
               >
                 <SelectValue />
               </SelectTrigger>
@@ -530,7 +783,9 @@ export default function AdminProjectView({
               onClick={handleCopyLink}
               className={cn(
                 "h-10 px-5 rounded-full flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-widest transition-all border border-white/5",
-                copied ? "bg-[var(--ds-mint)] text-[var(--ds-mint-text)] shadow-[0_0_20px_rgba(139,92,246,0.3)]" : "bg-white/5 text-[var(--ds-text-secondary)] hover:bg-white/10"
+                copied
+                  ? "bg-[var(--ds-mint)] text-[var(--ds-mint-text)] shadow-[0_0_20px_rgba(139,92,246,0.3)]"
+                  : "bg-white/5 text-[var(--ds-text-secondary)] hover:bg-white/10"
               )}
             >
               {copied ? <Check size={14} strokeWidth={3} /> : <Copy size={14} strokeWidth={2.5} />}
@@ -561,11 +816,7 @@ export default function AdminProjectView({
                   : "bg-white/5 text-[var(--ds-text-secondary)] hover:bg-red-500/10 hover:text-red-500 hover:border-red-500/20"
               )}
             >
-              {deleting ? (
-                <Loader2 size={14} strokeWidth={2} className="animate-spin" />
-              ) : (
-                <Trash2 size={14} strokeWidth={2.5} />
-              )}
+              {deleting ? <Loader2 size={14} strokeWidth={2} className="animate-spin" /> : <Trash2 size={14} strokeWidth={2.5} />}
               {deleting ? "Suppression…" : deleteConfirm ? "Confirmer ?" : "Supprimer"}
             </button>
           </div>
@@ -575,10 +826,8 @@ export default function AdminProjectView({
       {/* ── Tabs ── */}
       <main className="flex-1 p-8 max-w-[1600px] w-full mx-auto">
         <div className="grid grid-cols-12 gap-8 items-start">
-          {/* Main Area (Tabs) - 8/12 - Expanded */}
           <div className="col-span-12 lg:col-span-8">
             <Tabs defaultValue={defaultTab} orientation="vertical" className="w-full items-start gap-8">
-              {/* Tabs List (Vertical Sidebar-style) */}
               <TabsList className="glass-card flex-col p-2 h-auto w-20 shrink-0 gap-2 !bg-white/5 border-white/10">
                 {[
                   { value: "brief",    label: "Brief",     icon: <FileText size={20} /> },
@@ -604,41 +853,21 @@ export default function AdminProjectView({
                     <h2 className="text-2xl font-extrabold text-[var(--ds-text-primary)] tracking-tight mb-8">
                       Brief du client
                     </h2>
-  
+
                     {hasBrief ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                        <BriefField label="Objectif du projet" value={brief?.objectif} />
-                        <BriefField label="Cible visée" value={brief?.cible} />
-                        <BriefField label="Ton souhaité" value={brief?.ton_souhaite} />
-                        <BriefField label="Livrables attendus" value={brief?.livrables_attendus} />
-                        {brief?.deadline && (
-                          <div className="space-y-2">
-                            <p className="text-[11px] font-bold uppercase text-[var(--ds-text-tertiary)] tracking-widest">
-                              Deadline
-                            </p>
-                            <div className="flex items-center gap-3 bg-[var(--ds-mint-bg)] w-fit px-4 py-2 rounded-full border border-[var(--ds-mint)]/20 shadow-[0_0_15px_rgba(139,92,246,0.1)]">
-                              <Calendar size={15} className="text-[var(--ds-mint-text)]" />
-                              <p className="text-sm font-extrabold text-[var(--ds-mint-text)]">
-                                {new Date(brief!.deadline!).toLocaleDateString("fr-FR", {
-                                  day: "numeric", month: "long", year: "numeric",
-                                })}
-                              </p>
-                            </div>
-                          </div>
-                        )}
-                        <div className="md:col-span-2">
-                          <BriefField label="Notes libres" value={brief?.notes_libres} />
-                        </div>
-                      </div>
+                      <BriefReviewSection
+                        brief={brief!}
+                        projectId={project.id}
+                        briefStatus={briefStatus}
+                        onBriefStatusChange={setBriefStatus}
+                      />
                     ) : (
                       <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
                         <div className="w-16 h-16 rounded-3xl flex items-center justify-center bg-[var(--ds-yellow-bg)] text-[var(--ds-yellow-text)]">
                           <FileText size={24} strokeWidth={1.5} />
                         </div>
                         <div>
-                          <p className="font-extrabold text-lg text-[var(--ds-text-primary)]">
-                            Brief non rempli
-                          </p>
+                          <p className="font-extrabold text-lg text-[var(--ds-text-primary)]">Brief non rempli</p>
                           <p className="text-[var(--ds-text-secondary)] mt-2">
                             Le client n&apos;a pas encore complété son brief.
                           </p>
@@ -647,12 +876,12 @@ export default function AdminProjectView({
                     )}
                   </div>
                 </TabsContent>
-  
+
                 {/* FICHIERS CONTENT */}
                 <TabsContent value="fichiers" className="mt-0 outline-none" keepMounted>
                   <AdminFilesTab uploads={initialUploads} />
                 </TabsContent>
-  
+
                 {/* MESSAGES CONTENT */}
                 <TabsContent value="messages" className="mt-0 outline-none" keepMounted>
                   <Chat
@@ -666,7 +895,7 @@ export default function AdminProjectView({
             </Tabs>
           </div>
 
-          {/* Sidebar Area (AI Summary) - 4/12 - Persistent */}
+          {/* Sidebar Area (AI Summary) */}
           <div className="col-span-12 lg:col-span-4 sticky top-[108px] self-start">
             <AISummaryTab projectId={project.id} initialSummary={project.ai_summary} />
           </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import { logActivity } from "@/lib/activity";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase";
 import {
@@ -123,9 +124,10 @@ interface UploadZoneProps {
   files: UploadRecord[];
   onFileAdded: (record: UploadRecord) => void;
   onFileDeleted: (id: string) => void;
+  onFirstUpload?: () => void;
 }
 
-function UploadZone({ cat, projectId, files, onFileAdded, onFileDeleted }: UploadZoneProps) {
+function UploadZone({ cat, projectId, files, onFileAdded, onFileDeleted, onFirstUpload }: UploadZoneProps) {
   const { Icon, label, description, id: categoryId } = cat;
   const [pending, setPending] = useState<PendingFile[]>([]);
   const [dragging, setDragging] = useState(false);
@@ -192,10 +194,11 @@ function UploadZone({ cat, projectId, files, onFileAdded, onFileDeleted }: Uploa
         } else {
           onFileAdded(record);
           toast.success(`${file.name} ajouté.`);
+          onFirstUpload?.();
         }
       }
     },
-    [projectId, categoryId, onFileAdded]
+    [projectId, categoryId, onFileAdded, onFirstUpload]
   );
 
   async function handleDelete(file: UploadRecord) {
@@ -476,6 +479,7 @@ export default function FilesTab({
   initialFiles: UploadRecord[];
 }) {
   const [allFiles, setAllFiles] = useState<UploadRecord[]>(initialFiles);
+  const hasLoggedUpload = useRef(false);
 
   function handleFileAdded(record: UploadRecord) {
     setAllFiles((prev) => [record, ...prev]);
@@ -483,6 +487,13 @@ export default function FilesTab({
 
   function handleFileDeleted(id: string) {
     setAllFiles((prev) => prev.filter((f) => f.id !== id));
+  }
+
+  function handleFirstUpload() {
+    if (!hasLoggedUpload.current) {
+      hasLoggedUpload.current = true;
+      logActivity({ projectId, actorType: "client", action: "files_uploaded" });
+    }
   }
 
   return (
@@ -502,6 +513,7 @@ export default function FilesTab({
             files={allFiles.filter((f) => f.category === cat.id)}
             onFileAdded={handleFileAdded}
             onFileDeleted={handleFileDeleted}
+            onFirstUpload={handleFirstUpload}
           />
         ))}
       </div>
