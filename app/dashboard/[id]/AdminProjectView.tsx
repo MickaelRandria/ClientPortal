@@ -201,11 +201,8 @@ function BriefReviewSection({
 
   // Load existing comments
   useEffect(() => {
-    const supabase = createClient();
-    supabase
-      .from("brief_comments")
-      .select("id, brief_field, content, field_status")
-      .eq("project_id", projectId)
+    fetch(`/api/brief-comments?projectId=${projectId}`)
+      .then((res) => res.json())
       .then(({ data }) => {
         if (data) {
           const byField: Record<string, BriefComment> = {};
@@ -224,27 +221,16 @@ function BriefReviewSection({
     const content = (drafts[fieldKey] ?? "").trim();
     if (!content) return;
     setSavingField(fieldKey);
-    const supabase = createClient();
-    const existing = comments[fieldKey];
 
-    let result;
-    if (existing?.id) {
-      result = await supabase
-        .from("brief_comments")
-        .update({ content })
-        .eq("id", existing.id)
-        .select("id, brief_field, content, field_status")
-        .single();
-    } else {
-      result = await supabase
-        .from("brief_comments")
-        .insert({ project_id: projectId, brief_field: fieldKey, content, field_status: "pending" })
-        .select("id, brief_field, content, field_status")
-        .single();
-    }
+    const res = await fetch("/api/brief-comments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ projectId, briefField: fieldKey, content }),
+    });
+    const result = await res.json();
 
     setSavingField(null);
-    if (result.error) {
+    if (!res.ok || result.error) {
       toast.error("Erreur lors de la sauvegarde du commentaire.");
     } else {
       setComments((prev) => ({ ...prev, [fieldKey]: result.data }));
@@ -255,31 +241,24 @@ function BriefReviewSection({
   }
 
   async function setFieldStatus(fieldKey: string, status: "approved" | "rejected") {
-    const supabase = createClient();
-    const existing = comments[fieldKey];
-
-    if (existing?.id) {
-      const { data, error } = await supabase
-        .from("brief_comments")
-        .update({ field_status: status })
-        .eq("id", existing.id)
-        .select("id, brief_field, content, field_status")
-        .single();
-      if (!error && data) setComments((prev) => ({ ...prev, [fieldKey]: data }));
-    } else {
-      const { data, error } = await supabase
-        .from("brief_comments")
-        .insert({ project_id: projectId, brief_field: fieldKey, content: "", field_status: status })
-        .select("id, brief_field, content, field_status")
-        .single();
-      if (!error && data) setComments((prev) => ({ ...prev, [fieldKey]: data }));
+    const res = await fetch("/api/brief-comments", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ projectId, briefField: fieldKey, fieldStatus: status }),
+    });
+    const result = await res.json();
+    if (res.ok && result.data) {
+      setComments((prev) => ({ ...prev, [fieldKey]: result.data }));
     }
   }
 
   async function sendReview() {
     setUpdatingBriefStatus(true);
-    const supabase = createClient();
-    await supabase.from("briefs").update({ brief_status: "reviewed" }).eq("project_id", projectId);
+    await fetch("/api/brief-comments", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ projectId, briefStatus: "reviewed" }),
+    });
     onBriefStatusChange("reviewed");
     logActivity({ projectId, actorType: "admin", action: "brief_reviewed" });
     toast.success("Retours envoyés au client.");
@@ -288,8 +267,11 @@ function BriefReviewSection({
 
   async function approveBrief() {
     setUpdatingBriefStatus(true);
-    const supabase = createClient();
-    await supabase.from("briefs").update({ brief_status: "approved" }).eq("project_id", projectId);
+    await fetch("/api/brief-comments", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ projectId, briefStatus: "approved" }),
+    });
     onBriefStatusChange("approved");
     logActivity({ projectId, actorType: "admin", action: "brief_approved" });
     toast.success("Brief validé !");
