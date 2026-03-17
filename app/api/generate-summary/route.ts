@@ -67,10 +67,12 @@ export async function POST(request: NextRequest) {
     // Build text sections
     const briefText = brief
       ? `
-- Objectif : ${brief.objectif || "Non renseigné"}
+- Vision / Idée : ${brief.objectif || "Non renseigné"}
 - Cible visée : ${brief.cible || "Non renseigné"}
 - Ton souhaité : ${brief.ton_souhaite || "Non renseigné"}
+- Format souhaité : ${brief.format_souhaite || "Non renseigné"}
 - Livrables attendus : ${brief.livrables_attendus || "Non renseigné"}
+- Dialogues / Voix off : ${brief.dialogues || "Non fourni"}
 - Deadline : ${brief.deadline || "Non renseignée"}
 - Notes libres : ${brief.notes_libres || "Aucune"}`
       : "Aucun brief rempli par le client.";
@@ -85,30 +87,35 @@ export async function POST(request: NextRequest) {
         ? uploads.map((u) => `- ${u.file_name} (catégorie : ${u.category}, type : ${u.file_type ?? "inconnu"})`).join("\n")
         : "Aucun fichier déposé.";
 
-    const promptText = `Tu es un assistant pour une agence créative. Analyse ce projet client en te basant sur toutes les informations disponibles : brief, échanges de messages, et fichiers joints ci-dessous.
+    const promptText = `Tu es un assistant spécialisé dans l'analyse de briefs créatifs pour une agence de production de contenu marketing (vidéo, visuel, réseaux sociaux).
+
+Voici les informations d'un projet client. Analyse-les et produis un résumé structuré.
 
 CLIENT : ${project?.client_name ?? "Inconnu"}
 
-BRIEF CLIENT :
+BRIEF DU CLIENT :
 ${briefText}
 
-ÉCHANGES DE MESSAGES :
-${messagesText}
-
-FICHIERS DÉPOSÉS PAR LE CLIENT :
+FICHIERS DÉPOSÉS :
 ${uploadsText}
+
+HISTORIQUE DES ÉCHANGES (derniers messages) :
+${messagesText}
 
 Les fichiers sont joints ci-dessous. Analyse leur contenu pour enrichir le résumé.
 
-Réponds UNIQUEMENT avec un objet JSON valide (sans markdown, sans \`\`\`), avec exactement ces champs :
+Réponds UNIQUEMENT avec un JSON valide (sans backticks, sans texte autour) avec cette structure :
 {
-  "objectif": "résumé concis de l'objectif principal du projet",
-  "cible": "description de la cible/audience visée",
-  "ton": "ton et style de communication souhaités",
-  "livrables_attendus": "liste des livrables attendus",
-  "deadline": "date ou délai mentionné, ou null",
-  "points_attention": ["point clé 1", "point clé 2", "point clé 3"],
-  "resume_echanges": "résumé des échanges et informations importantes issues des messages et des fichiers"
+  "recap_clair": "En 2-3 phrases, résume clairement et simplement ce que le client veut. Cette phrase doit être compréhensible par n'importe qui dans l'équipe sans lire le reste du brief. Exemple : 'Le client souhaite une vidéo verticale de 30 secondes pour promouvoir sa nouvelle collection de bijoux sur Instagram, avec un ton élégant et des tons pastels.'",
+  "objectif": "résumé détaillé de la vision et de l'objectif du projet",
+  "cible": "description de la cible visée",
+  "ton": "ton et style souhaités pour les livrables",
+  "format": "format technique demandé (16:9, 9:16, etc.) et ses implications pour la production",
+  "livrables_attendus": "liste des livrables attendus sous forme narrative",
+  "deadline": "date ou période mentionnée, ou null",
+  "dialogues_resume": "résumé des dialogues/voix off fournis par le client, ou 'Non fourni' si absent",
+  "points_attention": ["point important 1", "point 2"],
+  "resume_echanges": "synthèse des points importants discutés dans le chat"
 }`;
 
     // Download files and build Gemini parts (failures are silently ignored)

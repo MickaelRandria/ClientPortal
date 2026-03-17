@@ -1,15 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { Sparkles, Loader2, RefreshCw, Target, Users, Mic2, Package, Calendar, AlertCircle } from "lucide-react";
+import { Sparkles, Loader2, RefreshCw, Target, Users, Mic2, Package, Calendar, AlertCircle, MonitorPlay, FileAudio } from "lucide-react";
 import { toast } from "sonner";
 
 interface AISummary {
+  recap_clair?: string;
   objectif?: string;
   cible?: string;
   ton?: string;
+  format?: string;
   livrables_attendus?: string;
   deadline?: string | null;
+  dialogues_resume?: string;
   points_attention?: string[];
   resume_echanges?: string;
 }
@@ -136,12 +139,34 @@ export default function AISummaryTab({
         )}
       </div>
 
+      {/* Recap clair — highlighted card */}
+      {summary.recap_clair && (
+        <div
+          className="rounded-2xl p-4 border-l-4 space-y-1"
+          style={{
+            background: "rgba(52,211,153,0.07)",
+            borderLeftColor: "var(--ds-mint)",
+          }}
+        >
+          <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "var(--ds-mint-text)" }}>
+            📌 Récap de la demande
+          </p>
+          <p className="text-sm font-medium leading-relaxed" style={{ color: "var(--ds-text-primary)" }}>
+            {summary.recap_clair}
+          </p>
+        </div>
+      )}
+
       {/* Fields grid */}
       <div className="grid grid-cols-1 gap-3">
         <SummaryField icon={<Target size={14} strokeWidth={1.8} />} label="Objectif" value={summary.objectif} />
         <SummaryField icon={<Users size={14} strokeWidth={1.8} />} label="Cible" value={summary.cible} />
         <SummaryField icon={<Mic2 size={14} strokeWidth={1.8} />} label="Ton" value={summary.ton} />
+        <SummaryField icon={<MonitorPlay size={14} strokeWidth={1.8} />} label="Format" value={summary.format} />
         <SummaryField icon={<Package size={14} strokeWidth={1.8} />} label="Livrables attendus" value={summary.livrables_attendus} />
+        {summary.dialogues_resume && summary.dialogues_resume !== "Non fourni" && (
+          <SummaryField icon={<FileAudio size={14} strokeWidth={1.8} />} label="Dialogues / Voix off" value={summary.dialogues_resume} />
+        )}
         {summary.deadline && (
           <SummaryField icon={<Calendar size={14} strokeWidth={1.8} />} label="Deadline" value={summary.deadline} />
         )}
