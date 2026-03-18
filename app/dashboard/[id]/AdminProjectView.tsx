@@ -22,6 +22,7 @@ import {
   X,
   Trash2,
   MessageCircle,
+  PackageCheck,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -464,6 +465,124 @@ function BriefReviewSection({
   );
 }
 
+/* ── ProductionCard ──────────────────────────────────────────────── */
+
+function ProductionCard({
+  projectId,
+  brief,
+}: {
+  projectId: string;
+  brief: Brief | null;
+}) {
+  const [deadline, setDeadline] = useState(brief?.deadline ?? "");
+  const [livrables, setLivrables] = useState(brief?.livrables_attendus ?? "");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  // Sync when brief loads from realtime
+  useEffect(() => {
+    setDeadline(brief?.deadline ?? "");
+    setLivrables(brief?.livrables_attendus ?? "");
+  }, [brief?.deadline, brief?.livrables_attendus]);
+
+  async function handleSave() {
+    setSaving(true);
+    const res = await fetch("/api/briefs", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ projectId, deadline, livrables_attendus: livrables }),
+    });
+    setSaving(false);
+    if (res.ok) {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+      toast.success("Informations de production sauvegardées.");
+    } else {
+      const { error } = await res.json();
+      toast.error(`Erreur : ${error}`);
+    }
+  }
+
+  return (
+    <div
+      className="glass-card p-8 mt-6"
+      style={{ borderColor: "rgba(139,92,246,0.15)", boxShadow: "0 0 30px rgba(139,92,246,0.05)" }}
+    >
+      <div className="flex items-center gap-3 mb-6">
+        <div
+          className="w-9 h-9 rounded-2xl flex items-center justify-center shrink-0"
+          style={{ background: "var(--ds-mint-bg)" }}
+        >
+          <PackageCheck size={17} strokeWidth={1.8} style={{ color: "var(--ds-mint-text)" }} />
+        </div>
+        <div>
+          <h3 className="font-extrabold text-base text-[var(--ds-text-primary)] leading-none">
+            Informations de production
+          </h3>
+          <p className="text-xs mt-0.5" style={{ color: "var(--ds-text-tertiary)" }}>
+            Défini par l'admin · visible par le client
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        {/* Deadline */}
+        <div className="flex flex-col gap-2">
+          <label className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "var(--ds-text-tertiary)" }}>
+            Date de rendu
+          </label>
+          <div className="flex items-center gap-3 rounded-2xl px-4 py-2.5 border transition-colors"
+            style={{ background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.08)" }}
+          >
+            <Calendar size={15} strokeWidth={1.8} style={{ color: "var(--ds-mint-text)", flexShrink: 0 }} />
+            <input
+              type="date"
+              value={deadline}
+              onChange={(e) => setDeadline(e.target.value)}
+              className="flex-1 bg-transparent text-sm focus:outline-none"
+              style={{ color: deadline ? "var(--ds-text-primary)" : "var(--ds-text-tertiary)" }}
+            />
+          </div>
+        </div>
+
+        {/* Livrables */}
+        <div className="flex flex-col gap-2 sm:col-span-1">
+          <label className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "var(--ds-text-tertiary)" }}>
+            Livrables attendus
+          </label>
+          <textarea
+            value={livrables}
+            onChange={(e) => setLivrables(e.target.value)}
+            placeholder="Ex : 1 vidéo 60s, 3 formats stories, 1 version statique..."
+            rows={3}
+            className="w-full rounded-2xl px-4 py-3 text-sm resize-none focus:outline-none transition-colors border"
+            style={{
+              background: "rgba(255,255,255,0.03)",
+              borderColor: "rgba(255,255,255,0.08)",
+              color: "var(--ds-text-primary)",
+            }}
+          />
+        </div>
+      </div>
+
+      <div className="flex justify-end mt-5">
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="h-9 px-5 rounded-full text-xs font-bold uppercase tracking-wide transition-all flex items-center gap-2 disabled:opacity-60"
+          style={{
+            background: saved ? "rgba(16,185,129,0.15)" : "var(--ds-mint)",
+            color: saved ? "#10B981" : "white",
+          }}
+        >
+          {saving ? <Loader2 size={13} className="animate-spin" /> : saved ? <Check size={13} strokeWidth={3} /> : null}
+          {saving ? "Sauvegarde…" : saved ? "Sauvegardé ✓" : "Enregistrer"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /* ── AdminFilesTab ───────────────────────────────────────────────── */
 
 function AdminFilesTab({ uploads: initialUploads }: { uploads: Upload[] }) {
@@ -857,6 +976,8 @@ export default function AdminProjectView({
                       </div>
                     )}
                   </div>
+
+                  <ProductionCard projectId={project.id} brief={brief} />
                 </TabsContent>
 
                 {/* FICHIERS CONTENT */}
