@@ -36,13 +36,6 @@ const FORMAT_OPTIONS = [
   "Autre (préciser dans les notes)",
 ];
 
-const NAV_ITEMS = [
-  { id: "brief",    label: "Brief",    emoji: "📋" },
-  { id: "fichiers", label: "Fichiers", emoji: "📁" },
-  { id: "messages", label: "Messages", emoji: "💬" },
-  { id: "demande",  label: "Demande",  emoji: "✨" },
-];
-
 const ACTIVITY_LABELS: Record<string, { label: string; icon: string; adminAction?: boolean }> = {
   brief_submitted: { label: "Brief envoyé",                  icon: "📋" },
   brief_reviewed:  { label: "Retours de l'équipe",           icon: "💬", adminAction: true },
@@ -245,10 +238,6 @@ export default function ClientPortalView({
     }
   }
 
-  function scrollTo(id: string) {
-    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
-
   const projectBadge = STATUS_BADGE[project.status] ?? STATUS_BADGE.active;
 
   return (
@@ -280,28 +269,14 @@ export default function ClientPortalView({
         </div>
       </header>
 
-      {/* ── QUICK NAV ── */}
-      <nav className="sticky top-[65px] z-20 border-b px-6 py-2 bg-[#09040F]/80 backdrop-blur-xl border-white/5">
-        <div className="max-w-3xl mx-auto flex items-center gap-0.5 overflow-x-auto scrollbar-none">
-          {NAV_ITEMS.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => scrollTo(item.id)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all hover:bg-white/10 text-[var(--ds-text-secondary)] hover:text-[var(--ds-text-primary)]"
-            >
-              <span>{item.emoji}</span>
-              {item.label}
-            </button>
-          ))}
-        </div>
-      </nav>
-
-      {/* ── PAGE CONTENT ── */}
-      <main className="max-w-3xl mx-auto px-6 py-10 flex flex-col gap-12">
-
-        {/* ─── SECTION 1 — BRIEF ─── */}
-        <section id="brief" style={{ scrollMarginTop: "125px" }}>
-          <SectionHeader icon={<FileText size={18} />} title="Brief du projet" />
+      {/* ── Main Content ── */}
+      <main className="flex-1 p-8 max-w-[1600px] w-full mx-auto">
+        <div className="grid grid-cols-12 gap-8 items-start">
+          <div className="col-span-12 lg:col-span-8">
+            <div className="w-full flex flex-col gap-12">
+              {/* ─── SECTION 1 — BRIEF ─── */}
+              <section id="brief">
+                <SectionHeader icon={<FileText size={18} />} title="Brief du projet" />
 
           {briefEditMode ? (
             /* ── FORM MODE ── */
@@ -419,55 +394,56 @@ export default function ClientPortalView({
             />
           )}
 
-          {/* Activity feed */}
-          {activityLog.length > 0 && (
-            <div className="mt-6">
-              <ClientActivityFeed entries={activityLog} />
+              </section>
+
+              {/* ─── SECTION 2 — FICHIERS ─── */}
+              <section id="fichiers">
+                <SectionHeader icon={<FolderOpen size={18} />} title="Vos fichiers" />
+                <FilesTab projectId={project.id} initialFiles={initialUploads} />
+              </section>
+
+              {/* ─── SECTION 3 — MESSAGES ─── */}
+              <section id="messages">
+                <SectionHeader icon={<MessageSquare size={18} />} title="Échanges avec l'équipe" />
+                <Chat
+                  projectId={project.id}
+                  senderType="client"
+                  senderName={project.client_name}
+                  initialMessages={initialMessages}
+                />
+              </section>
             </div>
-          )}
-        </section>
-
-        {/* ─── SECTION 2 — FICHIERS ─── */}
-        <section id="fichiers" style={{ scrollMarginTop: "125px" }}>
-          <SectionHeader icon={<FolderOpen size={18} />} title="Vos fichiers" />
-          <FilesTab projectId={project.id} initialFiles={initialUploads} />
-        </section>
-
-        {/* ─── SECTION 3 — MESSAGES ─── */}
-        <section id="messages" style={{ scrollMarginTop: "125px" }}>
-          <SectionHeader icon={<MessageSquare size={18} />} title="Échanges avec l'équipe" />
-          <Chat
-            projectId={project.id}
-            senderType="client"
-            senderName={project.client_name}
-            initialMessages={initialMessages}
-          />
-        </section>
-
-        {/* ─── SECTION 4 — NOUVELLE DEMANDE ─── */}
-        <section id="demande" style={{ scrollMarginTop: "125px" }}>
-          <div
-            className="rounded-[20px] px-7 py-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
-            style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}
-          >
-            <div>
-              <h3 className="font-bold text-[var(--ds-text-primary)] mb-1">Envie de collaborer sur un autre contenu ?</h3>
-              <p className="text-sm" style={{ color: "var(--ds-text-secondary)" }}>
-                Faites une nouvelle demande et nous créerons un espace dédié.
-              </p>
-            </div>
-            <button
-              onClick={() => setShowNewRequest(true)}
-              className="shrink-0 h-10 px-5 rounded-full flex items-center gap-2 text-xs font-bold uppercase tracking-wide transition-all border border-white/8 bg-white/5 hover:bg-white/10"
-              style={{ color: "var(--ds-text-secondary)" }}
-            >
-              <Plus size={15} strokeWidth={2.5} />
-              Nouvelle demande
-            </button>
           </div>
-        </section>
 
-        <div className="h-4" />
+          {/* Sidebar Area */}
+          <div className="col-span-12 lg:col-span-4 sticky top-[108px] self-start space-y-6">
+            {/* Activity feed */}
+            {activityLog.length > 0 && (
+              <ClientActivityFeed entries={activityLog} />
+            )}
+            
+            {/* Demande */}
+            <div
+              className="rounded-[20px] px-7 py-6 flex flex-col gap-4"
+              style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}
+            >
+              <div>
+                <h3 className="font-bold text-[var(--ds-text-primary)] mb-1">Envie de collaborer sur un autre contenu ?</h3>
+                <p className="text-sm" style={{ color: "var(--ds-text-secondary)" }}>
+                  Faites une nouvelle demande et nous créerons un espace dédié.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowNewRequest(true)}
+                className="w-full h-10 px-5 rounded-full flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wide transition-all border border-white/8 bg-white/5 hover:bg-white/10"
+                style={{ color: "var(--ds-text-secondary)" }}
+              >
+                <Plus size={15} strokeWidth={2.5} />
+                Nouvelle demande
+              </button>
+            </div>
+          </div>
+        </div>
       </main>
 
       {showNewRequest && (
