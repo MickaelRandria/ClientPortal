@@ -438,7 +438,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 function AdminComment({ comment }: { comment?: BriefComment }) {
-  if (!comment?.comment || comment.comment === "-") return null;
+  if (!comment) return null;
 
   const styles = {
     approved: { bg: "rgba(16,185,129,0.08)",  border: "#10B981", label: "✅ Validé par l'équipe", color: "#10B981" },
@@ -447,18 +447,21 @@ function AdminComment({ comment }: { comment?: BriefComment }) {
   } as const;
 
   const s = styles[comment.status as keyof typeof styles] ?? styles.comment;
+  const hasText = comment.comment && comment.comment !== "-";
 
   return (
     <div
       className="mt-1 p-3 rounded-xl border-l-[3px]"
       style={{ background: s.bg, borderLeftColor: s.border }}
     >
-      <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: s.color }}>
+      <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: s.color }}>
         {s.label}
       </p>
-      <p className="text-xs leading-relaxed" style={{ color: "var(--ds-text-secondary)" }}>
-        {comment.comment}
-      </p>
+      {hasText && (
+        <p className="text-xs leading-relaxed mt-1" style={{ color: "var(--ds-text-secondary)" }}>
+          {comment.comment}
+        </p>
+      )}
     </div>
   );
 }
