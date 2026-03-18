@@ -6,16 +6,19 @@ import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { createClient } from "@/lib/supabase";
 import { logActivity } from "@/lib/activity";
-import { FileText, FolderOpen, MessageSquare, Send, Plus, X } from "lucide-react";
+import {
+  FileText, FolderOpen, MessageSquare, Send, Plus, X,
+  Edit2, Calendar, Package, Zap,
+} from "lucide-react";
 import FilesTab, { type UploadRecord } from "./FilesTab";
 import Chat, { type Message } from "@/components/Chat";
 
 /* ── Constants ───────────────────────────────────────────────────── */
 
 const STATUS_BADGE = {
-  active:    { label: "Projet Actif",   bg: "var(--ds-mint-bg)",           color: "var(--ds-mint-text)" },
-  draft:     { label: "En préparation", bg: "rgba(255,255,255,0.05)",       color: "var(--ds-text-secondary)" },
-  completed: { label: "Projet Terminé", bg: "var(--ds-blue-bg)",            color: "var(--ds-blue-text)" },
+  active:    { label: "Projet Actif",   bg: "var(--ds-mint-bg)",     color: "var(--ds-mint-text)" },
+  draft:     { label: "En préparation", bg: "rgba(255,255,255,0.05)", color: "var(--ds-text-secondary)" },
+  completed: { label: "Projet Terminé", bg: "var(--ds-blue-bg)",      color: "var(--ds-blue-text)" },
 } as const;
 
 const BRIEF_STATUS_STYLE: Record<string, { label: string; bg: string; color: string }> = {
@@ -39,6 +42,16 @@ const NAV_ITEMS = [
   { id: "messages", label: "Messages", emoji: "💬" },
   { id: "demande",  label: "Demande",  emoji: "✨" },
 ];
+
+const ACTIVITY_LABELS: Record<string, { label: string; icon: string; adminAction?: boolean }> = {
+  brief_submitted: { label: "Brief envoyé",                  icon: "📋" },
+  brief_reviewed:  { label: "Retours de l'équipe",           icon: "💬", adminAction: true },
+  brief_approved:  { label: "Brief validé par l'équipe ✅",  icon: "✅", adminAction: true },
+  files_uploaded:  { label: "Fichiers déposés",              icon: "📁" },
+  comment_added:   { label: "Commentaire ajouté",            icon: "💬", adminAction: true },
+  status_changed:  { label: "Statut du projet mis à jour",   icon: "🔄", adminAction: true },
+  new_request:     { label: "Nouvelle demande envoyée",      icon: "✨" },
+};
 
 /* ── Types ───────────────────────────────────────────────────────── */
 
@@ -68,11 +81,30 @@ interface BriefComment {
   status: string;
 }
 
+interface ActivityEntry {
+  id: string;
+  action: string;
+  actor_type: string;
+  created_at: string;
+  details?: string;
+}
+
 interface Props {
   project: Project;
   initialBrief: Brief | null;
   initialUploads: UploadRecord[];
   initialMessages: Message[];
+}
+
+/* ── Helpers ─────────────────────────────────────────────────────── */
+
+function timeAgo(dateStr: string): string {
+  const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+  if (diff < 60) return "à l'instant";
+  if (diff < 3600) return `il y a ${Math.floor(diff / 60)}min`;
+  if (diff < 86400) return `il y a ${Math.floor(diff / 3600)}h`;
+  if (diff < 604800) return `il y a ${Math.floor(diff / 86400)}j`;
+  return new Date(dateStr).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
 }
 
 /* ── Main Component ──────────────────────────────────────────────── */
@@ -83,10 +115,18 @@ export default function ClientPortalView({
   initialUploads,
   initialMessages,
 }: Props) {
+  const initialStatus = initialBrief?.brief_status ?? "draft";
+
   const [saving, setSaving] = useState(false);
   const [briefComments, setBriefComments] = useState<Record<string, BriefComment>>({});
-  const [briefStatus, setBriefStatus] = useState(initialBrief?.brief_status ?? "draft");
+  const [briefStatus, setBriefStatus] = useState(initialStatus);
   const [showNewRequest, setShowNewRequest] = useState(false);
+  // Show form only if never submitted, or when user explicitly clicks "Modifier"
+  const [briefEditMode, setBriefEditMode] = useState(initialStatus === "draft");
+  // Admin-set production info (realtime-updated)
+  const [adminDeadline, setAdminDeadline] = useState(initialBrief?.deadline ?? null);
+  const [adminLivrables, setAdminLivrables] = useState(initialBrief?.livrables_attendus ?? null);
+  const [activityLog, setActivityLog] = useState<ActivityEntry[]>([]);
 
   const [form, setForm] = useState({
     objectif:        initialBrief?.objectif ?? "",
@@ -96,10 +136,6 @@ export default function ClientPortalView({
     format_souhaite: initialBrief?.format_souhaite ?? "",
     dialogues:       initialBrief?.dialogues ?? "",
   });
-
-  // Admin-defined production info (read-only for client)
-  const adminDeadline = initialBrief?.deadline ?? null;
-  const adminLivrables = initialBrief?.livrables_attendus ?? null;
 
   // Load admin comments
   useEffect(() => {
@@ -115,6 +151,58 @@ export default function ClientPortalView({
           setBriefComments(byField);
         }
       });
+  }, [project.id]);
+
+  // Realtime: brief updates (brief_status, deadline, livrables)
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`client-brief:${project.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "briefs", filter: `project_id=eq.${project.id}` },
+        (payload) => {
+          if (payload.eventType === "INSERT" || payload.eventType === "UPDATE") {
+            const u = payload.new as Brief;
+            if (u.brief_status) setBriefStatus(u.brief_status);
+            setAdminDeadline(u.deadline ?? null);
+            setAdminLivrables(u.livrables_attendus ?? null);
+          }
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [project.id]);
+
+  // Realtime: admin comments
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`client-comments:${project.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "brief_comments", filter: `project_id=eq.${project.id}` },
+        (payload) => {
+          if (payload.eventType === "INSERT" || payload.eventType === "UPDATE") {
+            const c = payload.new as BriefComment;
+            setBriefComments((prev) => ({ ...prev, [c.section]: c }));
+          }
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [project.id]);
+
+  // Load activity log
+  useEffect(() => {
+    const supabase = createClient();
+    supabase
+      .from("activity_log")
+      .select("id, action, actor_type, created_at, details")
+      .eq("project_id", project.id)
+      .order("created_at", { ascending: false })
+      .limit(10)
+      .then(({ data }) => { if (data) setActivityLog(data); });
   }, [project.id]);
 
   function handleChange(field: keyof typeof form, value: string) {
@@ -142,8 +230,18 @@ export default function ClientPortalView({
       toast.error(`Erreur : ${error.message}`);
     } else {
       setBriefStatus("submitted");
+      setBriefEditMode(false);
       toast.success("Brief envoyé ! L'équipe va l'examiner.");
       logActivity({ projectId: project.id, actorType: "client", action: "brief_submitted" });
+      // Refresh activity
+      const supabase2 = createClient();
+      supabase2
+        .from("activity_log")
+        .select("id, action, actor_type, created_at, details")
+        .eq("project_id", project.id)
+        .order("created_at", { ascending: false })
+        .limit(10)
+        .then(({ data }) => { if (data) setActivityLog(data); });
     }
   }
 
@@ -152,7 +250,6 @@ export default function ClientPortalView({
   }
 
   const projectBadge = STATUS_BADGE[project.status] ?? STATUS_BADGE.active;
-  const bsStyle = BRIEF_STATUS_STYLE[briefStatus] ?? BRIEF_STATUS_STYLE.draft;
 
   return (
     <div className="min-h-screen" style={{ background: "var(--ds-bg)" }}>
@@ -206,155 +303,128 @@ export default function ClientPortalView({
         <section id="brief" style={{ scrollMarginTop: "125px" }}>
           <SectionHeader icon={<FileText size={18} />} title="Brief du projet" />
 
-          {/* Brief status pill */}
-          <div className="mb-5">
-            <span
-              className="inline-flex items-center px-3.5 py-1.5 rounded-full text-[11px] font-bold"
-              style={{ background: bsStyle.bg, color: bsStyle.color }}
+          {briefEditMode ? (
+            /* ── FORM MODE ── */
+            <div
+              className="rounded-[24px] p-7 sm:p-9 flex flex-col gap-7"
+              style={{
+                background: "var(--ds-surface)",
+                backdropFilter: "blur(12px)",
+                WebkitBackdropFilter: "blur(12px)",
+                border: "1px solid var(--ds-border)",
+                boxShadow: "var(--ds-shadow-soft)",
+              }}
             >
-              {bsStyle.label}
-            </span>
-          </div>
-
-          <div
-            className="rounded-[24px] p-7 sm:p-9 flex flex-col gap-7"
-            style={{
-              background: "var(--ds-surface)",
-              backdropFilter: "blur(12px)",
-              WebkitBackdropFilter: "blur(12px)",
-              border: "1px solid var(--ds-border)",
-              boxShadow: "var(--ds-shadow-soft)",
-            }}
-          >
-            {/* Vision */}
-            <Field label="Votre vision / Quelle est votre idée ?">
-              <Textarea
-                placeholder="Décrivez votre idée de contenu, ce que vous imaginez, l'ambiance souhaitée..."
-                className="rounded-[1.25rem] bg-white/[0.03] border-white/5 focus:bg-white/5 focus:border-[var(--ds-mint)]/30 transition-all text-sm min-h-[120px] resize-none"
-                value={form.objectif}
-                onChange={(e) => handleChange("objectif", e.target.value)}
-              />
-              <AdminComment comment={briefComments["objectif"]} />
-            </Field>
-
-            {/* Cible + Ton */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <Field label="Cible visée">
-                <Textarea
-                  placeholder="À qui s'adresse ce projet ?"
-                  className="rounded-[1.25rem] bg-white/[0.03] border-white/5 focus:bg-white/5 focus:border-[var(--ds-mint)]/30 transition-all text-sm min-h-[80px] resize-none"
-                  value={form.cible}
-                  onChange={(e) => handleChange("cible", e.target.value)}
-                />
-                <AdminComment comment={briefComments["cible"]} />
-              </Field>
-              <Field label="Ton souhaité">
-                <Textarea
-                  placeholder="Ex : Pro, créatif, institutionnel..."
-                  className="rounded-[1.25rem] bg-white/[0.03] border-white/5 focus:bg-white/5 focus:border-[var(--ds-mint)]/30 transition-all text-sm min-h-[80px] resize-none"
-                  value={form.ton_souhaite}
-                  onChange={(e) => handleChange("ton_souhaite", e.target.value)}
-                />
-                <AdminComment comment={briefComments["ton_souhaite"]} />
-              </Field>
-            </div>
-
-            {/* Format */}
-            <Field label="Format souhaité">
-              <div className="relative">
-                <select
-                  className="w-full rounded-full bg-white/[0.03] border border-white/5 focus:outline-none focus:border-[var(--ds-mint)]/30 h-11 px-4 pr-10 text-sm transition-all appearance-none cursor-pointer"
-                  style={{
-                    color: form.format_souhaite ? "var(--ds-text-primary)" : "var(--ds-text-tertiary)",
-                  }}
-                  value={form.format_souhaite}
-                  onChange={(e) => handleChange("format_souhaite", e.target.value)}
-                >
-                  <option value="" style={{ background: "#1a0f2e", color: "#9ca3af" }}>
-                    Sélectionner un format…
-                  </option>
-                  {FORMAT_OPTIONS.map((opt) => (
-                    <option key={opt} value={opt} style={{ background: "#1a0f2e", color: "#f3f4f6" }}>
-                      {opt}
-                    </option>
-                  ))}
-                </select>
-                <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[var(--ds-text-tertiary)]">
-                  ▾
+              {briefStatus !== "draft" && (
+                <div className="flex items-center justify-between">
+                  <span
+                    className="inline-flex items-center px-3 py-1.5 rounded-full text-[11px] font-bold"
+                    style={{ background: BRIEF_STATUS_STYLE[briefStatus]?.bg, color: BRIEF_STATUS_STYLE[briefStatus]?.color }}
+                  >
+                    {BRIEF_STATUS_STYLE[briefStatus]?.label}
+                  </span>
+                  <button
+                    onClick={() => setBriefEditMode(false)}
+                    className="text-xs font-bold text-[var(--ds-text-tertiary)] hover:text-[var(--ds-text-primary)] transition-colors"
+                  >
+                    Annuler
+                  </button>
                 </div>
-              </div>
-              <AdminComment comment={briefComments["format_souhaite"]} />
-            </Field>
+              )}
 
-            {/* Admin-defined production info — read-only */}
-            {(adminDeadline || adminLivrables) && (
-              <div
-                className="rounded-2xl p-5 flex flex-col gap-4"
-                style={{ background: "rgba(139,92,246,0.06)", border: "1px solid rgba(139,92,246,0.15)" }}
-              >
-                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "var(--ds-mint-text)" }}>
-                  📦 Informations de production · définies par votre équipe
+              <Field label="Votre vision / Quelle est votre idée ?">
+                <Textarea
+                  placeholder="Décrivez votre idée de contenu, ce que vous imaginez, l'ambiance souhaitée..."
+                  className="rounded-[1.25rem] bg-white/[0.03] border-white/5 focus:bg-white/5 focus:border-[var(--ds-mint)]/30 transition-all text-sm min-h-[120px] resize-none"
+                  value={form.objectif}
+                  onChange={(e) => handleChange("objectif", e.target.value)}
+                />
+              </Field>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <Field label="Cible visée">
+                  <Textarea
+                    placeholder="À qui s'adresse ce projet ?"
+                    className="rounded-[1.25rem] bg-white/[0.03] border-white/5 focus:bg-white/5 focus:border-[var(--ds-mint)]/30 transition-all text-sm min-h-[80px] resize-none"
+                    value={form.cible}
+                    onChange={(e) => handleChange("cible", e.target.value)}
+                  />
+                </Field>
+                <Field label="Ton souhaité">
+                  <Textarea
+                    placeholder="Ex : Pro, créatif, institutionnel..."
+                    className="rounded-[1.25rem] bg-white/[0.03] border-white/5 focus:bg-white/5 focus:border-[var(--ds-mint)]/30 transition-all text-sm min-h-[80px] resize-none"
+                    value={form.ton_souhaite}
+                    onChange={(e) => handleChange("ton_souhaite", e.target.value)}
+                  />
+                </Field>
+              </div>
+
+              <Field label="Format souhaité">
+                <div className="relative">
+                  <select
+                    className="w-full rounded-full bg-white/[0.03] border border-white/5 focus:outline-none focus:border-[var(--ds-mint)]/30 h-11 px-4 pr-10 text-sm transition-all appearance-none cursor-pointer"
+                    style={{ color: form.format_souhaite ? "var(--ds-text-primary)" : "var(--ds-text-tertiary)" }}
+                    value={form.format_souhaite}
+                    onChange={(e) => handleChange("format_souhaite", e.target.value)}
+                  >
+                    <option value="" style={{ background: "#1a0f2e", color: "#9ca3af" }}>Sélectionner un format…</option>
+                    {FORMAT_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt} style={{ background: "#1a0f2e", color: "#f3f4f6" }}>{opt}</option>
+                    ))}
+                  </select>
+                  <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[var(--ds-text-tertiary)]">▾</div>
+                </div>
+              </Field>
+
+              <Field label="Texte, dialogues ou voix off">
+                <Textarea
+                  placeholder="Écrivez ici vos dialogues, voix off, scripts ou le texte à intégrer au contenu..."
+                  className="rounded-[1.25rem] bg-white/[0.03] border-white/5 focus:bg-white/5 focus:border-[var(--ds-mint)]/30 transition-all text-sm min-h-[150px] resize-none"
+                  value={form.dialogues}
+                  onChange={(e) => handleChange("dialogues", e.target.value)}
+                />
+                <p className="text-[11px] mt-1" style={{ color: "var(--ds-text-tertiary)" }}>
+                  Vous pouvez aussi déposer un fichier texte dans la section fichiers ci-dessous.
                 </p>
-                {adminDeadline && (
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
-                      style={{ background: "var(--ds-mint-bg)" }}
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--ds-mint-text)" }}><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--ds-text-tertiary)" }}>Date de rendu</p>
-                      <p className="text-sm font-bold" style={{ color: "var(--ds-text-primary)" }}>
-                        {new Date(adminDeadline).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
-                      </p>
-                    </div>
-                  </div>
-                )}
-                {adminLivrables && (
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "var(--ds-text-tertiary)" }}>Livrables attendus</p>
-                    <p className="text-sm leading-relaxed" style={{ color: "var(--ds-text-primary)", whiteSpace: "pre-wrap" }}>{adminLivrables}</p>
-                  </div>
-                )}
-              </div>
-            )}
+              </Field>
 
-            {/* Dialogues */}
-            <Field label="Texte, dialogues ou voix off">
-              <Textarea
-                placeholder="Écrivez ici vos dialogues, voix off, scripts ou le texte à intégrer au contenu..."
-                className="rounded-[1.25rem] bg-white/[0.03] border-white/5 focus:bg-white/5 focus:border-[var(--ds-mint)]/30 transition-all text-sm min-h-[150px] resize-none"
-                value={form.dialogues}
-                onChange={(e) => handleChange("dialogues", e.target.value)}
-              />
-              <p className="text-[11px] mt-1.5" style={{ color: "var(--ds-text-tertiary)" }}>
-                Vous pouvez aussi déposer un fichier texte dans la section fichiers ci-dessous.
-              </p>
-              <AdminComment comment={briefComments["dialogues"]} />
-            </Field>
+              <Field label="Notes & informations libres">
+                <Textarea
+                  placeholder="Toute autre information pertinente..."
+                  className="rounded-[1.25rem] bg-white/[0.03] border-white/5 focus:bg-white/5 focus:border-[var(--ds-mint)]/30 transition-all text-sm min-h-[80px] resize-none"
+                  value={form.notes_libres}
+                  onChange={(e) => handleChange("notes_libres", e.target.value)}
+                />
+              </Field>
 
-            {/* Notes */}
-            <Field label="Notes & informations libres">
-              <Textarea
-                placeholder="Toute autre information pertinente..."
-                className="rounded-[1.25rem] bg-white/[0.03] border-white/5 focus:bg-white/5 focus:border-[var(--ds-mint)]/30 transition-all text-sm min-h-[80px] resize-none"
-                value={form.notes_libres}
-                onChange={(e) => handleChange("notes_libres", e.target.value)}
-              />
-              <AdminComment comment={briefComments["notes_libres"]} />
-            </Field>
+              <button
+                className="btn-mint w-full h-12 flex items-center justify-center gap-2 text-sm font-bold"
+                onClick={handleSave}
+                disabled={saving}
+              >
+                <Send size={17} strokeWidth={2.2} />
+                {saving ? "Envoi en cours…" : "Enregistrer le brief"}
+              </button>
+            </div>
+          ) : (
+            /* ── RECAP MODE ── */
+            <BriefRecap
+              form={form}
+              briefStatus={briefStatus}
+              briefComments={briefComments}
+              adminDeadline={adminDeadline}
+              adminLivrables={adminLivrables}
+              onEdit={() => setBriefEditMode(true)}
+            />
+          )}
 
-            {/* Save button */}
-            <button
-              className="btn-mint w-full h-12 flex items-center justify-center gap-2 text-sm font-bold"
-              onClick={handleSave}
-              disabled={saving}
-            >
-              <Send size={17} strokeWidth={2.2} />
-              {saving ? "Envoi en cours…" : "Enregistrer le brief"}
-            </button>
-          </div>
+          {/* Activity feed */}
+          {activityLog.length > 0 && (
+            <div className="mt-6">
+              <ClientActivityFeed entries={activityLog} />
+            </div>
+          )}
         </section>
 
         {/* ─── SECTION 2 — FICHIERS ─── */}
@@ -378,15 +448,10 @@ export default function ClientPortalView({
         <section id="demande" style={{ scrollMarginTop: "125px" }}>
           <div
             className="rounded-[20px] px-7 py-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
-            style={{
-              background: "rgba(255,255,255,0.02)",
-              border: "1px solid rgba(255,255,255,0.06)",
-            }}
+            style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}
           >
             <div>
-              <h3 className="font-bold text-[var(--ds-text-primary)] mb-1">
-                Envie de collaborer sur un autre contenu ?
-              </h3>
+              <h3 className="font-bold text-[var(--ds-text-primary)] mb-1">Envie de collaborer sur un autre contenu ?</h3>
               <p className="text-sm" style={{ color: "var(--ds-text-secondary)" }}>
                 Faites une nouvelle demande et nous créerons un espace dédié.
               </p>
@@ -405,7 +470,6 @@ export default function ClientPortalView({
         <div className="h-4" />
       </main>
 
-      {/* ── MODAL NOUVELLE DEMANDE ── */}
       {showNewRequest && (
         <NewRequestModal
           projectId={project.id}
@@ -417,15 +481,180 @@ export default function ClientPortalView({
   );
 }
 
+/* ── BriefRecap ──────────────────────────────────────────────────── */
+
+function BriefRecap({
+  form,
+  briefStatus,
+  briefComments,
+  adminDeadline,
+  adminLivrables,
+  onEdit,
+}: {
+  form: Record<string, string>;
+  briefStatus: string;
+  briefComments: Record<string, BriefComment>;
+  adminDeadline: string | null;
+  adminLivrables: string | null;
+  onEdit: () => void;
+}) {
+  const bsStyle = BRIEF_STATUS_STYLE[briefStatus] ?? BRIEF_STATUS_STYLE.draft;
+
+  const FIELDS: { key: string; label: string; wide?: boolean }[] = [
+    { key: "objectif",        label: "Vision / Idée",               wide: true },
+    { key: "cible",           label: "Cible visée" },
+    { key: "ton_souhaite",    label: "Ton souhaité" },
+    { key: "format_souhaite", label: "Format souhaité" },
+    { key: "dialogues",       label: "Texte / Dialogues / Voix off", wide: true },
+    { key: "notes_libres",    label: "Notes libres",                 wide: true },
+  ];
+
+  return (
+    <div className="flex flex-col gap-5">
+      {/* Status + edit button */}
+      <div className="flex items-center justify-between gap-3">
+        <span
+          className="inline-flex items-center px-3.5 py-1.5 rounded-full text-[11px] font-bold"
+          style={{ background: bsStyle.bg, color: bsStyle.color }}
+        >
+          {bsStyle.label}
+        </span>
+        {briefStatus !== "approved" && (
+          <button
+            onClick={onEdit}
+            className="flex items-center gap-1.5 h-8 px-4 rounded-full text-xs font-bold transition-all bg-white/5 hover:bg-white/10 border border-white/5"
+            style={{ color: "var(--ds-text-secondary)" }}
+          >
+            <Edit2 size={12} strokeWidth={2.5} />
+            {briefStatus === "reviewed" ? "Modifier mon brief" : "Modifier"}
+          </button>
+        )}
+      </div>
+
+      {/* Production info (admin-set) */}
+      {(adminDeadline || adminLivrables) && (
+        <div
+          className="rounded-2xl p-5 flex flex-col gap-4"
+          style={{ background: "rgba(139,92,246,0.07)", border: "1px solid rgba(139,92,246,0.18)" }}
+        >
+          <div className="flex items-center gap-2">
+            <Package size={14} strokeWidth={2} style={{ color: "var(--ds-mint-text)" }} />
+            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "var(--ds-mint-text)" }}>
+              Informations de production · définies par votre équipe
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {adminDeadline && (
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: "var(--ds-mint-bg)" }}>
+                  <Calendar size={15} strokeWidth={1.8} style={{ color: "var(--ds-mint-text)" }} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--ds-text-tertiary)" }}>
+                    Date de rendu
+                  </p>
+                  <p className="text-sm font-bold" style={{ color: "var(--ds-text-primary)" }}>
+                    {new Date(adminDeadline).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
+                  </p>
+                </div>
+              </div>
+            )}
+            {adminLivrables && (
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "var(--ds-text-tertiary)" }}>
+                  Livrables attendus
+                </p>
+                <p className="text-sm leading-relaxed" style={{ color: "var(--ds-text-primary)", whiteSpace: "pre-wrap" }}>
+                  {adminLivrables}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Brief fields */}
+      <div
+        className="rounded-[24px] p-7 sm:p-9"
+        style={{
+          background: "var(--ds-surface)",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+          border: "1px solid var(--ds-border)",
+          boxShadow: "var(--ds-shadow-soft)",
+        }}
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6">
+          {FIELDS.map(({ key, label, wide }) => {
+            const value = form[key];
+            if (!value) return null;
+            return (
+              <div key={key} className={wide ? "sm:col-span-2" : ""}>
+                <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: "var(--ds-text-tertiary)" }}>
+                  {label}
+                </p>
+                <p className="text-sm leading-relaxed" style={{ color: "var(--ds-text-primary)", whiteSpace: "pre-wrap" }}>
+                  {value}
+                </p>
+                {briefComments[key] && (
+                  <AdminComment comment={briefComments[key]} />
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── ClientActivityFeed ──────────────────────────────────────────── */
+
+function ClientActivityFeed({ entries }: { entries: ActivityEntry[] }) {
+  return (
+    <div
+      className="rounded-2xl p-5"
+      style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}
+    >
+      <div className="flex items-center gap-2 mb-4">
+        <Zap size={13} strokeWidth={2.2} style={{ color: "var(--ds-mint-text)" }} />
+        <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "var(--ds-text-tertiary)" }}>
+          Activité récente
+        </p>
+      </div>
+      <div className="flex flex-col gap-1">
+        {entries.map((entry) => {
+          const meta = ACTIVITY_LABELS[entry.action];
+          if (!meta) return null;
+          const isAdmin = meta.adminAction || entry.actor_type === "admin";
+          return (
+            <div key={entry.id} className="flex items-center gap-3 py-1.5">
+              <span className="text-base shrink-0">{meta.icon}</span>
+              <div className="flex-1 min-w-0">
+                <span className="text-xs font-bold" style={{ color: "var(--ds-text-primary)" }}>
+                  {meta.label}
+                </span>
+                <span className="text-xs ml-2" style={{ color: "var(--ds-text-tertiary)" }}>
+                  · {isAdmin ? "L'équipe" : "Vous"}
+                </span>
+              </div>
+              <span className="text-[11px] shrink-0" style={{ color: "var(--ds-text-tertiary)" }}>
+                {timeAgo(entry.created_at)}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /* ── Sub-components ──────────────────────────────────────────────── */
 
 function SectionHeader({ icon, title }: { icon: React.ReactNode; title: string }) {
   return (
     <div className="flex items-center gap-3 mb-5">
-      <div
-        className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
-        style={{ background: "var(--ds-mint-bg)", color: "var(--ds-mint-text)" }}
-      >
+      <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: "var(--ds-mint-bg)", color: "var(--ds-mint-text)" }}>
         {icon}
       </div>
       <h2 className="font-extrabold text-xl tracking-tight" style={{ color: "var(--ds-text-primary)" }}>
@@ -438,10 +667,7 @@ function SectionHeader({ icon, title }: { icon: React.ReactNode; title: string }
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-2">
-      <label
-        className="text-xs font-bold uppercase"
-        style={{ color: "var(--ds-text-secondary)", letterSpacing: "0.06em" }}
-      >
+      <label className="text-xs font-bold uppercase" style={{ color: "var(--ds-text-secondary)", letterSpacing: "0.06em" }}>
         {label}
       </label>
       {children}
@@ -462,31 +688,16 @@ function AdminComment({ comment }: { comment?: BriefComment }) {
   const hasText = comment.comment && comment.comment !== "-";
 
   return (
-    <div
-      className="mt-1 p-3 rounded-xl border-l-[3px]"
-      style={{ background: s.bg, borderLeftColor: s.border }}
-    >
-      <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: s.color }}>
-        {s.label}
-      </p>
+    <div className="mt-2 p-3 rounded-xl border-l-[3px]" style={{ background: s.bg, borderLeftColor: s.border }}>
+      <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: s.color }}>{s.label}</p>
       {hasText && (
-        <p className="text-xs leading-relaxed mt-1" style={{ color: "var(--ds-text-secondary)" }}>
-          {comment.comment}
-        </p>
+        <p className="text-xs leading-relaxed mt-1" style={{ color: "var(--ds-text-secondary)" }}>{comment.comment}</p>
       )}
     </div>
   );
 }
 
-function NewRequestModal({
-  projectId,
-  clientName,
-  onClose,
-}: {
-  projectId: string;
-  clientName: string;
-  onClose: () => void;
-}) {
+function NewRequestModal({ projectId, clientName, onClose }: { projectId: string; clientName: string; onClose: () => void }) {
   const [description, setDescription] = useState("");
   const [sending, setSending] = useState(false);
 
@@ -504,12 +715,7 @@ function NewRequestModal({
       toast.error("Erreur lors de l'envoi.");
     } else {
       toast.success("Demande envoyée !");
-      logActivity({
-        projectId,
-        actorType: "client",
-        action: "new_request",
-        details: description.trim(),
-      });
+      logActivity({ projectId, actorType: "client", action: "new_request", details: description.trim() });
       onClose();
     }
   }
@@ -522,25 +728,14 @@ function NewRequestModal({
     >
       <div
         className="w-full max-w-md rounded-[24px] p-8 flex flex-col gap-6"
-        style={{
-          background: "var(--ds-surface)",
-          border: "1px solid var(--ds-border)",
-          boxShadow: "0 25px 60px rgba(0,0,0,0.5)",
-        }}
+        style={{ background: "var(--ds-surface)", border: "1px solid var(--ds-border)", boxShadow: "0 25px 60px rgba(0,0,0,0.5)" }}
       >
         <div className="flex items-start justify-between">
           <div>
-            <h3 className="font-extrabold text-lg" style={{ color: "var(--ds-text-primary)" }}>
-              Nouvelle demande
-            </h3>
-            <p className="text-sm mt-1" style={{ color: "var(--ds-text-secondary)" }}>
-              Décrivez brièvement votre idée.
-            </p>
+            <h3 className="font-extrabold text-lg" style={{ color: "var(--ds-text-primary)" }}>Nouvelle demande</h3>
+            <p className="text-sm mt-1" style={{ color: "var(--ds-text-secondary)" }}>Décrivez brièvement votre idée.</p>
           </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-full flex items-center justify-center bg-white/5 hover:bg-white/10 transition-colors"
-          >
+          <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center bg-white/5 hover:bg-white/10 transition-colors">
             <X size={16} strokeWidth={2} style={{ color: "var(--ds-text-secondary)" }} />
           </button>
         </div>
@@ -554,11 +749,7 @@ function NewRequestModal({
         />
 
         <div className="flex gap-3">
-          <button
-            onClick={onClose}
-            className="flex-1 h-11 rounded-full text-sm font-bold bg-white/5 hover:bg-white/10 transition-colors"
-            style={{ color: "var(--ds-text-secondary)" }}
-          >
+          <button onClick={onClose} className="flex-1 h-11 rounded-full text-sm font-bold bg-white/5 hover:bg-white/10 transition-colors" style={{ color: "var(--ds-text-secondary)" }}>
             Annuler
           </button>
           <button
