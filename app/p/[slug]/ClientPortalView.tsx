@@ -64,9 +64,9 @@ interface Brief {
 }
 
 interface BriefComment {
-  brief_field: string;
-  content: string;
-  field_status: string;
+  section: string;
+  comment: string;
+  status: string;
 }
 
 interface Props {
@@ -105,12 +105,12 @@ export default function ClientPortalView({
     const supabase = createClient();
     supabase
       .from("brief_comments")
-      .select("brief_field, content, field_status")
+      .select("section, comment, status")
       .eq("project_id", project.id)
       .then(({ data }) => {
         if (data) {
           const byField: Record<string, BriefComment> = {};
-          for (const c of data) byField[c.brief_field] = c;
+          for (const c of data) byField[c.section] = c;
           setBriefComments(byField);
         }
       });
@@ -438,15 +438,15 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 function AdminComment({ comment }: { comment?: BriefComment }) {
-  if (!comment?.content) return null;
+  if (!comment?.comment || comment.comment === "-") return null;
 
   const styles = {
     approved: { bg: "rgba(16,185,129,0.08)",  border: "#10B981", label: "✅ Validé par l'équipe", color: "#10B981" },
     rejected: { bg: "rgba(239,68,68,0.08)",   border: "#EF4444", label: "❌ À modifier",           color: "#EF4444" },
-    pending:  { bg: "rgba(139,92,246,0.08)",  border: "#8B5CF6", label: "💬 Retour de l'équipe",   color: "#8B5CF6" },
+    comment:  { bg: "rgba(139,92,246,0.08)",  border: "#8B5CF6", label: "💬 Retour de l'équipe",   color: "#8B5CF6" },
   } as const;
 
-  const s = styles[comment.field_status as keyof typeof styles] ?? styles.pending;
+  const s = styles[comment.status as keyof typeof styles] ?? styles.comment;
 
   return (
     <div
@@ -457,17 +457,10 @@ function AdminComment({ comment }: { comment?: BriefComment }) {
         {s.label}
       </p>
       <p className="text-xs leading-relaxed" style={{ color: "var(--ds-text-secondary)" }}>
-        {comment.content}
+        {comment.comment}
       </p>
     </div>
   );
-}
-
-// Declared as interface for the BriefComment type used locally
-interface BriefComment {
-  brief_field: string;
-  content: string;
-  field_status: string;
 }
 
 function NewRequestModal({
