@@ -75,9 +75,9 @@ interface Brief {
 
 interface BriefComment {
   id?: string;
-  brief_field: string;
-  content: string;
-  field_status: "pending" | "approved" | "rejected";
+  section: string;
+  comment: string;
+  status: "comment" | "approved" | "rejected";
 }
 
 interface Upload {
@@ -208,8 +208,8 @@ function BriefReviewSection({
           const byField: Record<string, BriefComment> = {};
           const initDrafts: Record<string, string> = {};
           for (const c of data) {
-            byField[c.brief_field] = c;
-            initDrafts[c.brief_field] = c.content;
+            byField[c.section] = c;
+            initDrafts[c.section] = c.comment;
           }
           setComments(byField);
           setDrafts(initDrafts);
@@ -345,7 +345,7 @@ function BriefReviewSection({
                     onClick={() => setFieldStatus(key, "approved")}
                     className={cn(
                       "w-7 h-7 rounded-lg flex items-center justify-center text-sm font-bold transition-all",
-                      comment?.field_status === "approved"
+                      comment?.status === "approved"
                         ? "bg-green-500/20 text-green-400"
                         : "bg-white/5 text-[var(--ds-text-tertiary)] hover:bg-green-500/10 hover:text-green-400"
                     )}
@@ -357,7 +357,7 @@ function BriefReviewSection({
                     onClick={() => setFieldStatus(key, "rejected")}
                     className={cn(
                       "w-7 h-7 rounded-lg flex items-center justify-center text-sm font-bold transition-all",
-                      comment?.field_status === "rejected"
+                      comment?.status === "rejected"
                         ? "bg-red-500/20 text-red-400"
                         : "bg-white/5 text-[var(--ds-text-tertiary)] hover:bg-red-500/10 hover:text-red-400"
                     )}
@@ -369,44 +369,44 @@ function BriefReviewSection({
                     onClick={() => {
                       setOpenField(isOpen ? null : key);
                       if (!isOpen) {
-                        setDrafts((prev) => ({ ...prev, [key]: comment?.content ?? "" }));
+                        setDrafts((prev) => ({ ...prev, [key]: comment?.comment ?? "" }));
                       }
                     }}
                     className="h-7 px-2.5 rounded-lg flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide bg-white/5 text-[var(--ds-text-tertiary)] hover:bg-white/10 transition-all"
                   >
                     <MessageCircle size={11} strokeWidth={2} />
-                    {comment?.content ? "Modifier" : "Commenter"}
+                    {comment?.comment ? "Modifier" : "Commenter"}
                   </button>
                 </div>
               </div>
 
               {/* Existing comment (read mode) */}
-              {comment?.content && !isOpen && (
+              {comment?.comment && comment.comment !== "-" && !isOpen && (
                 <div
                   className="p-3 rounded-xl border-l-[3px]"
                   style={{
                     background:
-                      comment.field_status === "approved" ? "rgba(16,185,129,0.06)" :
-                      comment.field_status === "rejected"  ? "rgba(239,68,68,0.06)"  : "rgba(139,92,246,0.06)",
+                      comment.status === "approved" ? "rgba(16,185,129,0.06)" :
+                      comment.status === "rejected"  ? "rgba(239,68,68,0.06)"  : "rgba(139,92,246,0.06)",
                     borderLeftColor:
-                      comment.field_status === "approved" ? "#10B981" :
-                      comment.field_status === "rejected"  ? "#EF4444" : "#8B5CF6",
+                      comment.status === "approved" ? "#10B981" :
+                      comment.status === "rejected"  ? "#EF4444" : "#8B5CF6",
                   }}
                 >
                   <p
                     className="text-[10px] font-bold uppercase tracking-wider mb-1"
                     style={{
                       color:
-                        comment.field_status === "approved" ? "#10B981" :
-                        comment.field_status === "rejected"  ? "#EF4444" : "#8B5CF6",
+                        comment.status === "approved" ? "#10B981" :
+                        comment.status === "rejected"  ? "#EF4444" : "#8B5CF6",
                     }}
                   >
                     Votre commentaire
-                    {comment.field_status === "approved" && " · Validé ✓"}
-                    {comment.field_status === "rejected" && " · À revoir"}
+                    {comment.status === "approved" && " · Validé ✓"}
+                    {comment.status === "rejected" && " · À revoir"}
                   </p>
                   <p className="text-xs" style={{ color: "var(--ds-text-secondary)" }}>
-                    {comment.content}
+                    {comment.comment}
                   </p>
                 </div>
               )}
