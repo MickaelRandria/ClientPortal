@@ -109,6 +109,7 @@ function ProjectCard({ project }: { project: ProjectWithStats }) {
   return (
     <div
       onClick={() => router.push(`/dashboard/${project.id}`)}
+      onMouseEnter={() => router.prefetch(`/dashboard/${project.id}`)}
       className="glass-card p-6 flex flex-col gap-4 cursor-pointer"
     >
       <div className="flex items-start justify-between gap-3">

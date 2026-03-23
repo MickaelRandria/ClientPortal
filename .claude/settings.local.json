@@ -21,7 +21,12 @@
       "mcp__claude_ai_Supabase__apply_migration",
       "Bash(npm install resend)",
       "Bash(npx next lint)",
-      "Bash(grep -v \"^$\")"
+      "Bash(grep -v \"^$\")",
+      "Bash(grep -n \"Input\" app/p/[slug]/ClientPortalView.tsx)",
+      "Bash(netstat -ano)",
+      "Bash(taskkill /PID 9192 /F)",
+      "Bash(cmd /c \"taskkill /PID 9192 /F\")",
+      "Bash(npm run:*)"
     ]
   }
 }
