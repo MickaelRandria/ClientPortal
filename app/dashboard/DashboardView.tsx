@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase";
 import { FileBox, MessageSquare, Plus, Search, Filter, LogOut, Check, X } from "lucide-react";
 import { toast } from "sonner";
@@ -110,7 +110,7 @@ function ProjectCard({ project }: { project: ProjectWithStats }) {
     <div
       onClick={() => router.push(`/dashboard/${project.id}`)}
       onMouseEnter={() => router.prefetch(`/dashboard/${project.id}`)}
-      className="glass-card p-6 flex flex-col gap-4 cursor-pointer"
+      className="glass-card p-4 md:p-6 flex flex-col gap-3 md:gap-4 cursor-pointer active:opacity-80 transition-opacity"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
@@ -297,11 +297,11 @@ function PendingRequestsAlert({
                 {timeAgo(req.created_at)}
               </p>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-2 shrink-0 flex-col sm:flex-row">
               <button
                 onClick={() => handleReject(req)}
                 disabled={processing === req.id}
-                className="h-8 px-3 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all bg-white/5 hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50"
+                className="h-9 px-3 w-full sm:w-auto rounded-full text-xs font-bold flex items-center justify-center gap-1.5 transition-all bg-white/5 hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50"
                 style={{ color: "var(--ds-text-secondary)" }}
               >
                 <X size={13} strokeWidth={2.5} />
@@ -310,7 +310,7 @@ function PendingRequestsAlert({
               <button
                 onClick={() => handleAccept(req)}
                 disabled={processing === req.id}
-                className="h-8 px-3 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all disabled:opacity-50 text-white"
+                className="h-9 px-3 w-full sm:w-auto rounded-full text-xs font-bold flex items-center justify-center gap-1.5 transition-all disabled:opacity-50 text-white"
                 style={{ background: "#10B981" }}
               >
                 <Check size={13} strokeWidth={2.5} />
@@ -445,34 +445,43 @@ export default function DashboardView({
     setLocalRequests((prev) => prev.filter((r) => r.id !== id));
   }
 
+  // Listen for FAB "+" tap from mobile bottom nav
+  useEffect(() => {
+    const handler = () => setModalOpen(true);
+    window.addEventListener("open-new-project", handler);
+    return () => window.removeEventListener("open-new-project", handler);
+  }, []);
+
   return (
-    <div className="flex flex-col p-8 gap-8 max-w-[1600px] mx-auto w-full">
+    <div className="flex flex-col p-4 md:p-8 gap-6 md:gap-8 max-w-[1600px] mx-auto w-full">
       {/* Header */}
-      <header className="flex items-center justify-between">
+      <header className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-[var(--ds-text-primary)]">Tableau de bord</h1>
-          <p className="text-[var(--ds-text-secondary)] mt-1">Gérez vos projets et collaborations clients.</p>
+          <h1 className="text-xl md:text-3xl font-bold tracking-tight text-[var(--ds-text-primary)]">Tableau de bord</h1>
+          <p className="text-xs md:text-sm text-[var(--ds-text-secondary)] mt-0.5 md:mt-1">Gérez vos projets et collaborations clients.</p>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="relative group">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ds-text-tertiary)] group-focus-within:text-[var(--ds-mint-text)] transition-colors" size={18} />
+        <div className="flex items-center gap-2 md:gap-4">
+          <div className="relative group flex-1 md:flex-none">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ds-text-tertiary)] group-focus-within:text-[var(--ds-mint-text)] transition-colors" size={16} />
             <input
               type="text"
               placeholder="Rechercher..."
-              className="pl-10 pr-4 py-2.5 rounded-full bg-white border border-[var(--ds-border-subtle)] focus:border-[var(--ds-mint)] outline-none w-64 transition-all text-sm"
+              className="pl-9 pr-4 py-2 rounded-full bg-white/5 border border-white/8 focus:border-[var(--ds-mint)] outline-none w-full md:w-64 transition-all text-sm"
+              style={{ color: "var(--ds-text-primary)" }}
             />
           </div>
-          <button className="p-3 rounded-full bg-white border border-[var(--ds-border-subtle)] hover:bg-[var(--ds-surface-hover)] transition-colors">
-            <Filter size={18} className="text-[var(--ds-text-secondary)]" />
+          <button className="w-10 h-10 shrink-0 rounded-full bg-white/5 border border-white/8 hover:bg-white/10 transition-colors flex items-center justify-center">
+            <Filter size={16} className="text-[var(--ds-text-secondary)]" />
           </button>
           <button
             onClick={handleLogout}
-            className="p-3 rounded-full bg-white border border-[var(--ds-border-subtle)] hover:bg-[var(--ds-surface-hover)] transition-colors"
+            className="w-10 h-10 shrink-0 rounded-full bg-white/5 border border-white/8 hover:bg-white/10 transition-colors flex items-center justify-center"
             title="Déconnexion"
           >
-            <LogOut size={18} className="text-[var(--ds-text-secondary)]" />
+            <LogOut size={16} className="text-[var(--ds-text-secondary)]" />
           </button>
-          <button onClick={() => setModalOpen(true)} className="btn-mint flex items-center gap-2">
+          {/* Desktop only — on mobile the FAB in bottom nav handles this */}
+          <button onClick={() => setModalOpen(true)} className="btn-mint hidden md:flex items-center gap-2">
             <Plus size={18} strokeWidth={2.5} />
             <span className="font-bold">Nouveau projet</span>
           </button>
@@ -493,50 +502,50 @@ export default function DashboardView({
       {/* Bento grid */}
       <div className="grid grid-cols-12 grid-rows-[auto_auto] gap-6">
         {/* Focus IA */}
-        <div className="col-span-12 lg:col-span-8 glass-card p-10 flex items-center justify-between relative overflow-hidden group">
-          <div className="relative z-10 max-w-md">
-            <span className="badge badge-mint mb-4">Focus IA</span>
-            <h2 className="text-4xl font-extrabold tracking-tighter text-[var(--ds-text-primary)] leading-[1.1] mb-4">
-              Prêt à lancer <br /> un nouveau projet ?
+        <div className="col-span-12 lg:col-span-8 glass-card p-5 md:p-10 flex items-center justify-between relative overflow-hidden group">
+          <div className="relative z-10 max-w-md w-full">
+            <span className="badge badge-mint mb-3 md:mb-4">Focus IA</span>
+            <h2 className="text-2xl md:text-4xl font-extrabold tracking-tighter text-[var(--ds-text-primary)] leading-[1.1] mb-3 md:mb-4">
+              Prêt à lancer <br className="hidden md:block" /> un nouveau projet ?
             </h2>
-            <p className="text-lg text-[var(--ds-text-secondary)] mb-8 leading-relaxed">
-              Utilisez notre assistant pour configurer <br /> votre espace client en quelques secondes.
+            <p className="text-sm md:text-lg text-[var(--ds-text-secondary)] mb-5 md:mb-8 leading-relaxed">
+              Configurez votre espace client en quelques secondes.
             </p>
-            <button className="btn-mint !px-8 !py-4 text-base" onClick={() => setModalOpen(true)}>
+            <button className="btn-mint w-full md:w-auto !px-8 !py-4 text-base" onClick={() => setModalOpen(true)}>
               Démarrer le brief
             </button>
           </div>
-          <div className="absolute right-[-5%] top-1/2 -translate-y-1/2 opacity-80 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700">
+          <div className="absolute right-[-5%] top-1/2 -translate-y-1/2 opacity-80 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700 hidden md:block">
             <GlassElement className="w-[400px] h-[400px]" />
           </div>
         </div>
 
         {/* Stats + Activity */}
-        <div className="col-span-12 lg:col-span-4 flex flex-col gap-6">
+        <div className="col-span-12 lg:col-span-4 flex flex-col gap-4 md:gap-6">
           {/* Stats */}
-          <div className="glass-card p-8 flex flex-col justify-between flex-1">
+          <div className="glass-card p-5 md:p-8 flex flex-col justify-between">
             <div>
-              <span className="badge badge-yellow mb-4">Aperçu</span>
-              <h3 className="text-xl font-bold text-[var(--ds-text-primary)]">Statistiques</h3>
+              <span className="badge badge-yellow mb-3 md:mb-4">Aperçu</span>
+              <h3 className="text-lg md:text-xl font-bold text-[var(--ds-text-primary)]">Statistiques</h3>
             </div>
-            <div className="flex flex-col gap-6 mt-8">
-              <div className="flex justify-between items-end">
+            <div className="flex flex-row md:flex-col gap-6 mt-5 md:mt-8">
+              <div className="flex-1 flex justify-between items-end">
                 <div>
                   <p className="text-sm text-[var(--ds-text-secondary)]">Projets actifs</p>
-                  <p className="text-4xl font-extrabold text-[var(--ds-text-primary)]">
+                  <p className="text-3xl md:text-4xl font-extrabold text-[var(--ds-text-primary)]">
                     {localProjects.filter((p) => p.status === "active").length}
                   </p>
                 </div>
-                <div className="w-16 h-1 bg-[var(--ds-mint)] rounded-full mb-2" />
+                <div className="w-12 md:w-16 h-1 bg-[var(--ds-mint)] rounded-full mb-2" />
               </div>
-              <div className="flex justify-between items-end">
+              <div className="flex-1 flex justify-between items-end">
                 <div>
-                  <p className="text-sm text-[var(--ds-text-secondary)]">Messages non lus</p>
-                  <p className="text-4xl font-extrabold text-[var(--ds-text-primary)]">
+                  <p className="text-sm text-[var(--ds-text-secondary)]">Non lus</p>
+                  <p className="text-3xl md:text-4xl font-extrabold text-[var(--ds-text-primary)]">
                     {localProjects.reduce((acc, p) => acc + p.unreadCount, 0)}
                   </p>
                 </div>
-                <div className="w-16 h-1 bg-[var(--ds-yellow)] rounded-full mb-2" />
+                <div className="w-12 md:w-16 h-1 bg-[var(--ds-yellow)] rounded-full mb-2" />
               </div>
             </div>
           </div>

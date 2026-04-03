@@ -327,6 +327,7 @@ export default function Chat({ projectId, senderType, senderName, initialMessage
             maxHeight: "120px",
             paddingTop: "8px",
             paddingBottom: "8px",
+            fontSize: "16px",
           }}
         />
         <button

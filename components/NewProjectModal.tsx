@@ -181,8 +181,8 @@ export default function NewProjectModal({ open, onClose, adminId, onCreated }: P
   return (
     <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
       <DialogContent
-        className="sm:max-w-md border-white/5 shadow-2xl backdrop-blur-2xl"
-        style={{ borderRadius: "var(--radius)", background: "var(--ds-surface)" }}
+        className="max-w-full sm:max-w-md border-white/5 shadow-2xl backdrop-blur-2xl m-0 sm:m-auto rounded-none sm:rounded-[var(--radius)]"
+        style={{ background: "var(--ds-surface)" }}
       >
         {step === "form" ? (
           <>
@@ -358,7 +358,7 @@ export default function NewProjectModal({ open, onClose, adminId, onCreated }: P
               </div>
 
               {/* Share actions */}
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-3">
                 {/* WhatsApp */}
                 <a
                   href={buildWhatsAppUrl(

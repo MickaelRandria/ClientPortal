@@ -57,9 +57,9 @@ export default function SettingsView({ initialProfile, userEmail }: { initialPro
   }
 
   return (
-    <div className="flex flex-col p-8 gap-8 max-w-[1200px] mx-auto w-full">
+    <div className="flex flex-col p-4 md:p-8 gap-8 max-w-[1200px] mx-auto w-full">
       <header>
-        <h1 className="text-3xl font-bold tracking-tight text-[var(--ds-text-primary)]">
+        <h1 className="text-xl md:text-3xl font-bold tracking-tight text-[var(--ds-text-primary)]">
           Réglages
         </h1>
         <p className="text-[var(--ds-text-secondary)] mt-1">
@@ -198,11 +198,11 @@ export default function SettingsView({ initialProfile, userEmail }: { initialPro
             </div>
           </div>
 
-          <div className="flex justify-end pt-2">
-            <button 
+          <div className="flex justify-end pt-2 sticky bottom-[80px] md:bottom-0 md:relative z-10">
+            <button
               disabled={loading}
               onClick={handleSave}
-              className="btn-mint !px-8 flex items-center gap-2 group"
+              className="btn-mint !px-8 flex items-center gap-2 group w-full md:w-auto justify-center"
             >
               {loading ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} className="transition-transform group-hover:scale-110" />}
               <span className="font-bold">Enregistrer les modifications</span>
