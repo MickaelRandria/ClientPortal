@@ -244,7 +244,7 @@ export default function ClientPortalView({
     <div className="min-h-screen" style={{ background: "var(--ds-bg)" }}>
 
       {/* ── HEADER ── */}
-      <header className="sticky top-0 z-30 border-b px-6 py-4 bg-[#09040F]/90 backdrop-blur-2xl border-white/5">
+      <header className="sticky top-0 z-30 border-b px-4 md:px-6 py-3 md:py-4 bg-[#09040F]/90 backdrop-blur-2xl border-white/5">
         <div className="max-w-3xl mx-auto flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <Link href="/" className="transition-transform hover:scale-105 shrink-0">
@@ -270,8 +270,8 @@ export default function ClientPortalView({
       </header>
 
       {/* ── Main Content ── */}
-      <main className="flex-1 p-8 max-w-[1600px] w-full mx-auto">
-        <div className="grid grid-cols-12 gap-8 items-start">
+      <main className="flex-1 p-4 md:p-8 max-w-[1600px] w-full mx-auto">
+        <div className="grid grid-cols-12 gap-4 md:gap-8 items-start">
           <div className="col-span-12 lg:col-span-8">
             <div className="w-full flex flex-col gap-12">
               {/* ─── SECTION 1 — BRIEF ─── */}
@@ -416,7 +416,7 @@ export default function ClientPortalView({
           </div>
 
           {/* Sidebar Area */}
-          <div className="col-span-12 lg:col-span-4 sticky top-[108px] self-start space-y-6">
+          <div className="col-span-12 lg:col-span-4 lg:sticky lg:top-[108px] self-start space-y-6">
             {/* Activity feed */}
             {activityLog.length > 0 && (
               <ClientActivityFeed entries={activityLog} />
@@ -698,12 +698,12 @@ function NewRequestModal({ projectId, clientName, onClose }: { projectId: string
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4"
       style={{ background: "rgba(0,0,0,0.72)", backdropFilter: "blur(8px)" }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
-        className="w-full max-w-md rounded-[24px] p-8 flex flex-col gap-6"
+        className="w-full sm:max-w-md rounded-t-[24px] sm:rounded-[24px] p-6 sm:p-8 flex flex-col gap-6"
         style={{ background: "var(--ds-surface)", border: "1px solid var(--ds-border)", boxShadow: "0 25px 60px rgba(0,0,0,0.5)" }}
       >
         <div className="flex items-start justify-between">
