@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase-session";
+import { createServerClient } from "@/lib/supabase";
 
 export async function POST(req: NextRequest) {
   const { projectId, fileKey, fileName, fileSize, fileType, category, uploadedBy } =

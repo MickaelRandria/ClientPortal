@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { r2, R2_BUCKET } from "@/lib/r2";
-import { createServerClient } from "@/lib/supabase-session";
+import { createServerClient } from "@/lib/supabase";
 
 export async function DELETE(req: NextRequest) {
   const { uploadId, fileKey } = await req.json();
