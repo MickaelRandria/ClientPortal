@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -23,6 +23,7 @@ import {
   Trash2,
   MessageCircle,
   PackageCheck,
+  Film,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -126,10 +127,11 @@ const BRIEF_DISPLAY_FIELDS: { key: keyof Brief; label: string }[] = [
 ];
 
 const CATEGORY_CONFIG: Record<string, { label: string; Icon: React.ElementType }> = {
-  charte:  { label: "Charte graphique", Icon: Palette },
-  asset:   { label: "Assets visuels",   Icon: ImageIcon },
-  contenu: { label: "Contenus texte",   Icon: FileText },
-  other:   { label: "Autres fichiers",  Icon: Paperclip },
+  livraison: { label: "Créations livrées", Icon: PackageCheck },
+  charte:    { label: "Charte graphique",  Icon: Palette },
+  asset:     { label: "Assets visuels",    Icon: ImageIcon },
+  contenu:   { label: "Contenus texte",    Icon: FileText },
+  other:     { label: "Autres fichiers",   Icon: Paperclip },
 };
 
 /* ── Helpers ─────────────────────────────────────────────────────── */
@@ -168,6 +170,7 @@ function buildWhatsAppUrl(phone: string | null | undefined, name: string, slug: 
 function fileIcon(mimeType: string | null) {
   if (!mimeType) return <File size={16} strokeWidth={1.8} />;
   if (mimeType.startsWith("image/")) return <ImageIcon size={16} strokeWidth={1.8} />;
+  if (mimeType.startsWith("video/")) return <Film size={16} strokeWidth={1.8} />;
   if (mimeType.includes("spreadsheet") || mimeType.includes("excel") || mimeType === "text/csv")
     return <FileSpreadsheet size={16} strokeWidth={1.8} />;
   return <FileText size={16} strokeWidth={1.8} />;
@@ -175,6 +178,10 @@ function fileIcon(mimeType: string | null) {
 
 function isImage(mimeType: string | null) {
   return !!mimeType?.startsWith("image/");
+}
+
+function isVideo(mimeType: string | null) {
+  return !!mimeType?.startsWith("video/");
 }
 
 function storagePath(fileUrl: string): string {
@@ -585,63 +592,186 @@ function ProductionCard({
 
 /* ── AdminFilesTab ───────────────────────────────────────────────── */
 
-function AdminFilesTab({ uploads: initialUploads }: { uploads: Upload[] }) {
+function AdminFilesTab({ uploads: initialUploads, projectId }: { uploads: Upload[]; projectId: string }) {
   const [uploads, setUploads] = useState<Upload[]>(initialUploads);
-  const categories = ["charte", "asset", "contenu", "other"];
+  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const allCategories = ["livraison", "charte", "asset", "contenu", "other"];
+  const byCategory = Object.fromEntries(
+    allCategories.map((cat) => [cat, uploads.filter((u) => u.category === cat)])
+  );
+
+  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    if (files.length === 0) return;
+    setUploading(true);
+    const newUploads: Upload[] = [];
+
+    for (const file of files) {
+      try {
+        setUploadProgress((prev) => ({ ...prev, [file.name]: 0 }));
+
+        // 1. Get presigned URL
+        const params = new URLSearchParams({
+          projectId,
+          fileName: file.name,
+          fileType: file.type || "application/octet-stream",
+          category: "livraison",
+        });
+        const presignRes = await fetch(`/api/upload/presign?${params}`);
+        if (!presignRes.ok) throw new Error("Presign failed");
+        const { uploadUrl, fileKey } = await presignRes.json();
+
+        // 2. Upload directly to R2 with progress
+        await new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.upload.onprogress = (ev) => {
+            if (ev.lengthComputable) {
+              setUploadProgress((prev) => ({ ...prev, [file.name]: Math.round((ev.loaded / ev.total) * 100) }));
+            }
+          };
+          xhr.onload = () => (xhr.status < 400 ? resolve() : reject(new Error(`HTTP ${xhr.status}`)));
+          xhr.onerror = () => reject(new Error("Erreur réseau"));
+          xhr.open("PUT", uploadUrl);
+          xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+          xhr.send(file);
+        });
+
+        // 3. Save to DB
+        const confirmRes = await fetch("/api/upload/confirm", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            projectId,
+            fileKey,
+            fileName: file.name,
+            fileSize: file.size,
+            fileType: file.type,
+            category: "livraison",
+            uploadedBy: "admin",
+          }),
+        });
+        if (!confirmRes.ok) throw new Error("Confirm failed");
+        const { upload } = await confirmRes.json();
+        newUploads.push({ ...upload, created_at: new Date().toISOString() });
+        toast.success(`${file.name} déposé.`);
+      } catch {
+        toast.error(`Erreur lors du dépôt de ${file.name}`);
+      } finally {
+        setUploadProgress((prev) => { const n = { ...prev }; delete n[file.name]; return n; });
+      }
+    }
+
+    setUploads((prev) => [...newUploads, ...prev]);
+    setUploading(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
 
   async function handleDelete(file: Upload) {
-    const supabase = createClient();
-    const path = storagePath(file.file_url);
-    const { error } = await supabase.storage.from("project-files").remove([path]);
-    if (error) { toast.error("Erreur lors de la suppression."); return; }
-    await supabase.from("uploads").delete().eq("id", file.id);
+    const R2_URL = process.env.NEXT_PUBLIC_R2_PUBLIC_URL ?? "";
+    const isR2 = R2_URL.length > 0 && file.file_url.startsWith(R2_URL);
+
+    if (isR2) {
+      const fileKey = file.file_url.slice(R2_URL.length + 1);
+      const res = await fetch("/api/upload/delete", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uploadId: file.id, fileKey }),
+      });
+      if (!res.ok) { toast.error("Erreur lors de la suppression."); return; }
+    } else {
+      // Legacy Supabase Storage files
+      const supabase = createClient();
+      const path = storagePath(file.file_url);
+      const { error } = await supabase.storage.from("project-files").remove([path]);
+      if (error) { toast.error("Erreur lors de la suppression."); return; }
+      await supabase.from("uploads").delete().eq("id", file.id);
+    }
     setUploads((prev) => prev.filter((u) => u.id !== file.id));
     toast.success("Fichier supprimé.");
   }
 
-  const byCategory = Object.fromEntries(
-    categories.map((cat) => [cat, uploads.filter((u) => u.category === cat)])
-  );
-  const hasFiles = uploads.length > 0;
-
-  if (!hasFiles) {
-    return (
-      <div
-        className="rounded-[28px] p-12 flex flex-col items-center justify-center text-center gap-4"
-        style={{
-          background: "var(--ds-surface)", backdropFilter: "blur(12px)",
-          WebkitBackdropFilter: "blur(12px)", border: "1px solid var(--ds-border)",
-          boxShadow: "var(--ds-shadow-soft)", minHeight: "240px",
-        }}
-      >
-        <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: "rgba(255,255,255,0.05)" }}>
-          <FolderOpen size={22} strokeWidth={1.5} style={{ color: "var(--ds-text-tertiary)" }} />
-        </div>
-        <div>
-          <p className="font-bold" style={{ color: "var(--ds-text-primary)" }}>Aucun fichier</p>
-          <p className="text-sm mt-1" style={{ color: "var(--ds-text-secondary)" }}>
-            Le client n&apos;a pas encore déposé de fichiers.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const uploadingNames = Object.keys(uploadProgress);
 
   return (
     <div className="space-y-4">
-      {categories.map((cat) => {
+      {/* Upload button */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        accept=".mp4,.mov,.webm,.avi,.mkv,.jpg,.jpeg,.png,.webp,.gif,.pdf,.doc,.docx,.txt"
+        className="hidden"
+        onChange={handleFileSelect}
+      />
+      <button
+        onClick={() => fileInputRef.current?.click()}
+        disabled={uploading}
+        className="btn-mint w-full h-11 flex items-center justify-center gap-2 text-sm font-bold disabled:opacity-50"
+      >
+        <PackageCheck size={17} strokeWidth={2} />
+        {uploading ? "Dépôt en cours…" : "Déposer une création"}
+      </button>
+
+      {/* Progress bars */}
+      {uploadingNames.length > 0 && (
+        <div className="space-y-2">
+          {uploadingNames.map((name) => (
+            <div key={name} className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+              <div className="flex items-center justify-between mb-1.5">
+                <p className="text-xs font-bold truncate" style={{ color: "var(--ds-text-primary)" }}>{name}</p>
+                <p className="text-xs shrink-0 ml-2" style={{ color: "var(--ds-mint-text)" }}>{uploadProgress[name]}%</p>
+              </div>
+              <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
+                <div
+                  className="h-full rounded-full transition-all duration-200"
+                  style={{ width: `${uploadProgress[name]}%`, background: "var(--ds-mint)" }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Empty state */}
+      {uploads.length === 0 && uploadingNames.length === 0 && (
+        <div
+          className="rounded-[28px] p-12 flex flex-col items-center justify-center text-center gap-4"
+          style={{
+            background: "var(--ds-surface)", backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)", border: "1px solid var(--ds-border)",
+            boxShadow: "var(--ds-shadow-soft)", minHeight: "200px",
+          }}
+        >
+          <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: "rgba(255,255,255,0.05)" }}>
+            <FolderOpen size={22} strokeWidth={1.5} style={{ color: "var(--ds-text-tertiary)" }} />
+          </div>
+          <p className="font-bold" style={{ color: "var(--ds-text-primary)" }}>Aucun fichier</p>
+          <p className="text-sm" style={{ color: "var(--ds-text-secondary)" }}>
+            Déposez vos créations ou attendez les fichiers du client.
+          </p>
+        </div>
+      )}
+
+      {/* Files by category */}
+      {allCategories.map((cat) => {
         const files = byCategory[cat];
         if (!files || files.length === 0) return null;
         const config = CATEGORY_CONFIG[cat];
         const CatIcon = config.Icon;
+        const isLivraison = cat === "livraison";
 
         return (
           <div
             key={cat}
             className="rounded-[24px] p-5"
             style={{
-              background: "var(--ds-surface)", backdropFilter: "blur(12px)",
-              WebkitBackdropFilter: "blur(12px)", border: "1px solid var(--ds-border)",
+              background: isLivraison ? "rgba(52,211,153,0.04)" : "var(--ds-surface)",
+              backdropFilter: "blur(12px)",
+              WebkitBackdropFilter: "blur(12px)",
+              border: isLivraison ? "1px solid rgba(52,211,153,0.15)" : "1px solid var(--ds-border)",
               boxShadow: "var(--ds-shadow-soft)",
             }}
           >
@@ -655,7 +785,8 @@ function AdminFilesTab({ uploads: initialUploads }: { uploads: Upload[] }) {
               </span>
             </div>
 
-            {files.some((f) => isImage(f.file_type)) ? (
+            {/* Image grid */}
+            {files.some((f) => isImage(f.file_type)) && (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
                 {files.filter((f) => isImage(f.file_type)).map((file) => (
                   <div key={file.id} className="group relative">
@@ -682,15 +813,18 @@ function AdminFilesTab({ uploads: initialUploads }: { uploads: Upload[] }) {
                   </div>
                 ))}
               </div>
-            ) : null}
+            )}
 
+            {/* Video + doc list */}
             {files.filter((f) => !isImage(f.file_type)).map((file) => (
               <div
                 key={file.id}
                 className="flex items-center gap-3 rounded-xl px-3 py-2.5 group"
                 style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)", marginBottom: "6px" }}
               >
-                <div style={{ color: "var(--ds-text-tertiary)", flexShrink: 0 }}>{fileIcon(file.file_type)}</div>
+                <div style={{ color: isVideo(file.file_type) ? "var(--ds-mint-text)" : "var(--ds-text-tertiary)", flexShrink: 0 }}>
+                  {fileIcon(file.file_type)}
+                </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-bold truncate" style={{ color: "var(--ds-text-primary)" }}>{file.file_name}</p>
                   <p className="text-[11px]" style={{ color: "var(--ds-text-tertiary)" }}>
@@ -974,7 +1108,7 @@ export default function AdminProjectView({
 
                 {/* FICHIERS CONTENT */}
                 <TabsContent value="fichiers" className="mt-0 outline-none" keepMounted>
-                  <AdminFilesTab uploads={initialUploads} />
+                  <AdminFilesTab uploads={initialUploads} projectId={project.id} />
                 </TabsContent>
 
                 {/* MESSAGES CONTENT */}
